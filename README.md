@@ -35,6 +35,10 @@ MyHome-Knowledge/
     └── best-practices.md        # 最佳实践
 ```
 
+## 系统架构图
+
+![MyHome Architecture](assets/architecture-diagram.png)
+
 ## 快速开始
 
 ### 核心概念

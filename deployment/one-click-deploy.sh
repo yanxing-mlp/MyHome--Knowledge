@@ -416,32 +416,29 @@ else
 fi
 success "数据库 $DB_NAME 准备就绪"
 
-# 询问是否使用 schema.sql 初始化（适合全新部署）
+# 自动使用 schema.sql 初始化数据库（开箱即用，无需手动操作）
 SCHEMA_SQL="$SERVER_DIR/fh-boot/src/main/resources/db/schema.sql"
 if [ -f "$SCHEMA_SQL" ]; then
-    read -p "检测到完整数据库初始化脚本 (schema.sql)，是否立即执行？(y/n，建议全新部署选 y): " INIT_SCHEMA
+    info "检测到完整数据库初始化脚本，正在执行..."
     
-    if [ "$INIT_SCHEMA" = "y" ] || [ "$INIT_SCHEMA" = "Y" ]; then
-        info "使用 schema.sql 初始化数据库..."
-        if [ -z "$DB_PASS" ]; then
-            mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "$DB_NAME" < "$SCHEMA_SQL" 2>/dev/null || \
-                warn "schema.sql 执行失败，将交由 Flyway 自动迁移"
-        else
-            mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$SCHEMA_SQL" 2>/dev/null || \
-                warn "schema.sql 执行失败，将交由 Flyway 自动迁移"
-        fi
-        
-        if [ $? -eq 0 ]; then
-            success "数据库已通过 schema.sql 初始化"
-            # 禁用 Flyway 自动迁移（因为表已存在）
+    if [ -z "$DB_PASS" ]; then
+        if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" "$DB_NAME" < "$SCHEMA_SQL" 2>/dev/null; then
+            success "数据库已通过 schema.sql 初始化（包含种子数据）"
+            # 禁用 Flyway baseline-on-migrate（因为表已存在）
             sed -i.bak 's/baseline-on-migrate: true/baseline-on-migrate: false/' "$DEV_YML"
             rm -f "$DEV_YML.bak"
-            info "已禁用 Flyway baseline-on-migrate（数据库已初始化）"
         else
-            warn "schema.sql 执行失败或跳过，后端启动时将使用 Flyway 自动迁移"
+            warn "schema.sql 执行失败，将交由 Flyway 自动迁移"
         fi
     else
-        info "跳过 schema.sql，后端启动时将使用 Flyway 自动迁移建表"
+        if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$SCHEMA_SQL" 2>/dev/null; then
+            success "数据库已通过 schema.sql 初始化（包含种子数据）"
+            # 禁用 Flyway baseline-on-migrate（因为表已存在）
+            sed -i.bak 's/baseline-on-migrate: true/baseline-on-migrate: false/' "$DEV_YML"
+            rm -f "$DEV_YML.bak"
+        else
+            warn "schema.sql 执行失败，将交由 Flyway 自动迁移"
+        fi
     fi
 else
     info "未找到 schema.sql，后端启动时将使用 Flyway 逐版本迁移"

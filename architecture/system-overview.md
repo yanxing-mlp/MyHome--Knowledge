@@ -1,5 +1,9 @@
 # 系统总览
 
+## 架构图
+
+![MyHome Architecture](../assets/architecture-diagram.png)
+
 ## 项目定位
 
 **MyHome（家庭 Home）** 是一个面向家庭的综合管理系统，涵盖相册、菜谱、视频、密码本等核心模块，支持多用户协同与数据分区隔离。

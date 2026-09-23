@@ -45,6 +45,66 @@ bash deployment/one-click-deploy.sh --backend-only
 bash deployment/one-click-deploy.sh --frontend-only
 ```
 
+---
+
+## 日常运维：重启与更新
+
+完成首次部署后，日常开发中需要拉取最新代码并重启服务，使用专用脚本更快捷。
+
+### 重启脚本用法
+
+```bash
+# 完整重启（拉取代码 + 重新构建 + 启动）
+bash deployment/restart.sh
+
+# 只重启后端
+bash deployment/restart.sh --backend-only
+
+# 只重启前端
+bash deployment/restart.sh --frontend-only
+
+# 跳过 git pull（本地调试用）
+bash restart.sh --skip-pull
+
+# 跳过构建（仅重启，适合配置未变时）
+bash restart.sh --skip-build
+```
+
+### 重启流程
+
+脚本会自动执行以下步骤：
+
+1. **停止正在运行的服务**：通过 PID 文件或端口查找，优雅停止所有进程
+2. **拉取最新代码**：检测远程新提交并更新本地仓库（可跳过）
+3. **检查依赖**：如果 `package.json` 有变化，自动执行 `pnpm install`
+4. **重新构建**：清理旧产物并编译打包（可跳过）
+5. **启动服务**：后台启动后端和前端，记录 PID 和日志
+6. **等待就绪**：轮询健康检查接口，确认服务可用
+
+### 日志管理
+
+每次重启会自动轮转日志文件，保留最近 7 天的历史：
+
+```bash
+# 查看当前日志
+tail -f /tmp/family-home-backend.log
+tail -f /tmp/family-home-admin.log
+tail -f /tmp/family-home-h5.log
+
+# 查看历史日志（按时间戳命名）
+ls -lh /tmp/family-home-*.log.*
+```
+
+### 常见场景
+
+| 场景 | 命令 |
+|------|------|
+| 早上开始工作，拉取最新代码重启 | `bash restart.sh` |
+| 改了后端代码，只重启后端 | `bash restart.sh --backend-only --skip-pull` |
+| 改了前端样式，只重启前端 | `bash restart.sh --frontend-only --skip-pull` |
+| 配置未变，快速重启 | `bash restart.sh --skip-build` |
+| 排查问题，查看版本信息 | 重启完成后会输出两端 commit hash |
+
 ### 访问地址
 
 部署完成后，可访问以下地址：

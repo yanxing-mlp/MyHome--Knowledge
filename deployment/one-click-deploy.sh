@@ -55,16 +55,28 @@ for arg in "$@"; do
     esac
 done
 
-# ===== 项目根目录 =====
+# ===== 项目根目录（自动定位，可在任意位置运行脚本）=====
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# 脚本在 deployment/ 目录下，向上一级就是知识库根目录
+KNOWLEDGE_ROOT="$SCRIPT_DIR/.."
+
+# 代码仓库可能在两个位置：
+# 1. 知识库同级目录（首次部署时）
+# 2. 知识库目录内的 code/ 子目录（如果用户这样组织）
+if [ -d "$KNOWLEDGE_ROOT/../family-home-server" ]; then
+    # 场景1：代码在知识库外部的独立目录
+    PROJECT_ROOT="$KNOWLEDGE_ROOT/.."
+elif [ -d "$KNOWLEDGE_ROOT/code/family-home-server" ]; then
+    # 场景2：代码在知识库内部的 code/ 目录
+    PROJECT_ROOT="$KNOWLEDGE_ROOT/code"
+else
+    # 场景3：代码尚未克隆，将在后续步骤中克隆到知识库同级目录
+    PROJECT_ROOT="$KNOWLEDGE_ROOT/.."
+fi
+
 SERVER_DIR="$PROJECT_ROOT/family-home-server"
 WEB_DIR="$PROJECT_ROOT/family-home-web"
-
-# ===== 检查是否在项目根目录 =====
-if [ ! -d "$SERVER_DIR" ] || [ ! -d "$WEB_DIR" ]; then
-    error "请在 MyHome 项目根目录下运行此脚本（当前目录缺少 family-home-server 或 family-home-web）"
-fi
 
 info "=========================================="
 info "  MyHome 一键部署脚本"
@@ -358,9 +370,12 @@ fi
 info "[7/11] 检查代码仓库..."
 
 if [ -d "$SERVER_DIR/.git" ] && [ -d "$WEB_DIR/.git" ]; then
-    success "代码仓库已存在"
+    success "代码仓库已存在（$PROJECT_ROOT）"
 else
-    warn "代码未检出，正在从 GitHub 克隆..."
+    warn "代码未检出，正在从 GitHub 克隆到 $PROJECT_ROOT ..."
+    
+    # 确保目标目录存在
+    mkdir -p "$PROJECT_ROOT"
     cd "$PROJECT_ROOT"
     
     if [ ! -d "family-home-server" ]; then

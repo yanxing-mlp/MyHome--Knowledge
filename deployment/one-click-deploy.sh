@@ -2,8 +2,8 @@
 ###############################################################################
 # MyHome 一键部署脚本（macOS / Linux）
 # 
-# 用途：在全新电脑上从源码到运行环境，自动完成所有安装、配置与启动步骤
-# 前置条件：仅需 git + 网络连接（内网需能访问 MySQL 8.0）
+# 用途：在全新电脑上从零开始搭建整个 MyHome 系统（无需任何前置条件）
+# 前置条件：仅需网络连接（内网需能访问 MySQL 8.0）
 # 
 # 使用方法：
 #   bash one-click-deploy.sh          # 默认 dev 模式，前后端一起启动
@@ -11,12 +11,12 @@
 #   bash one-click-deploy.sh --frontend-only  # 只启动前端
 # 
 # 脚本会自动检测并安装：
-#   - Homebrew（macOS）或 apt-get（Linux Ubuntu/Debian）
-#   - JDK 21（OpenJDK）
-#   - Maven 3.9+
-#   - Node.js 22+（含 pnpm）
-#   - MySQL 8.0（可选本地安装，也可连接远程）
-#   - Git LFS（如果仓库用了大文件存储）
+#   - Git（版本控制工具）
+#   - Homebrew（macOS）或 apt-get/yum（Linux Ubuntu/Debian/CentOS）
+#   - JDK 21（OpenJDK，Spring Boot 3.5 必需）
+#   - Maven 3.9+（后端构建工具）
+#   - Node.js 22+（含 pnpm，前端构建环境）
+#   - MySQL 8.0（可选本地安装，也可连接远程数据库）
 # 
 # 最终效果：
 #   - 后端：http://localhost:8080/health
@@ -75,7 +75,7 @@ info "=========================================="
 ###############################################################################
 # Step 1: 检测操作系统与包管理器
 ###############################################################################
-info "[1/10] 检测操作系统与包管理器..."
+info "[1/11] 检测操作系统与包管理器..."
 
 OS_TYPE="$(uname -s)"
 PACKAGE_MANAGER=""
@@ -112,9 +112,64 @@ case "$OS_TYPE" in
 esac
 
 ###############################################################################
-# Step 2: 安装 JDK 21
+# Step 2: 安装 Git（如果尚未存在）
 ###############################################################################
-info "[2/10] 检查 JDK 21..."
+info "[2/11] 检查 Git..."
+
+if command -v git &> /dev/null; then
+    GIT_VERSION=$(git --version | awk '{print $3}')
+    success "Git $GIT_VERSION 已安装"
+else
+    info "Git 未安装，正在安装..."
+    case "$OS_TYPE" in
+        Darwin*)
+            # macOS：先装 Command Line Tools（如果还没装）
+            if ! xcode-select -p > /dev/null 2>&1; then
+                warn "Command Line Tools 未安装，请先运行: xcode-select --install"
+                info "安装完成后重新运行此脚本"
+                exit 1
+            fi
+            brew install git
+            ;;
+        Linux*)
+            case "$PACKAGE_MANAGER" in
+                apt)
+                    sudo apt-get update
+                    sudo apt-get install -y git
+                    ;;
+                yum)
+                    sudo yum install -y git
+                    ;;
+                *)
+                    error "不支持的包管理器: $PACKAGE_MANAGER"
+                    ;;
+            esac
+            ;;
+        *)
+            error "不支持的操作系统: $OS_TYPE"
+            ;;
+    esac
+    success "Git 安装完成: $(git --version | awk '{print $3}')"
+fi
+
+# 配置 git 用户信息（如果尚未配置）
+if [ -z "$(git config --global user.name 2>/dev/null)" ]; then
+    warn "Git 用户信息未配置，请设置："
+    read -p "请输入你的 Git 用户名: " GIT_USER
+    read -p "请输入你的 Git 邮箱: " GIT_EMAIL
+    git config --global user.name "$GIT_USER"
+    git config --global user.email "$GIT_EMAIL"
+    success "Git 用户信息已配置: $GIT_USER <$GIT_EMAIL>"
+else
+    GIT_USER=$(git config --global user.name)
+    GIT_EMAIL=$(git config --global user.email)
+    success "Git 用户信息已配置: $GIT_USER <$GIT_EMAIL>"
+fi
+
+###############################################################################
+# Step 3: 安装 JDK 21
+###############################################################################
+info "[3/11] 检查 JDK 21..."
 
 if command -v java &> /dev/null; then
     JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
@@ -166,7 +221,7 @@ success "JAVA_HOME=$JAVA_HOME"
 ###############################################################################
 # Step 3: 安装 Maven
 ###############################################################################
-info "[3/10] 检查 Maven..."
+info "[4/11] 检查 Maven..."
 
 if command -v mvn &> /dev/null; then
     MVN_VERSION=$(mvn -version | grep "Apache Maven" | awk '{print $3}')
@@ -190,7 +245,7 @@ fi
 ###############################################################################
 # Step 4: 安装 Node.js 22+ 与 pnpm
 ###############################################################################
-info "[4/10] 检查 Node.js 22+ 与 pnpm..."
+info "[5/11] 检查 Node.js 22+ 与 pnpm..."
 
 NODE_REQUIRED=22
 
@@ -246,7 +301,7 @@ fi
 ###############################################################################
 # Step 5: 安装 MySQL 8.0（可选）
 ###############################################################################
-info "[5/10] 检查 MySQL 8.0..."
+info "[6/11] 检查 MySQL 8.0..."
 
 MYSQL_INSTALLED=false
 if command -v mysql &> /dev/null; then
@@ -300,7 +355,7 @@ fi
 ###############################################################################
 # Step 6: 克隆代码（如果尚未存在）
 ###############################################################################
-info "[6/10] 检查代码仓库..."
+info "[7/11] 检查代码仓库..."
 
 if [ -d "$SERVER_DIR/.git" ] && [ -d "$WEB_DIR/.git" ]; then
     success "代码仓库已存在"
@@ -322,7 +377,7 @@ fi
 ###############################################################################
 # Step 7: 配置后端数据库连接
 ###############################################################################
-info "[7/10] 配置后端数据库连接..."
+info "[8/11] 配置后端数据库连接..."
 
 DEV_YML="$SERVER_DIR/fh-boot/src/main/resources/application-dev.yml"
 
@@ -391,7 +446,7 @@ success "Vault 密钥已配置"
 # Step 8: 构建并启动后端
 ###############################################################################
 if [ "$MODE" = "full" ] || [ "$MODE" = "backend-only" ]; then
-    info "[8/10] 构建并启动后端..."
+    info "[9/11] 构建并启动后端..."
     
     cd "$SERVER_DIR"
     
@@ -438,7 +493,7 @@ fi
 # Step 9: 配置前端环境变量
 ###############################################################################
 if [ "$MODE" = "full" ] || [ "$MODE" = "frontend-only" ]; then
-    info "[9/10] 配置前端环境变量..."
+    info "[10/11] 配置前端环境变量..."
     
     # 创建 admin 的 .env.local
     ADMIN_ENV="$WEB_DIR/packages/admin/.env.local"
@@ -459,7 +514,7 @@ EOF
     ###############################################################################
     # Step 10: 安装依赖并启动前端
     ###############################################################################
-    info "[10/10] 安装前端依赖并启动..."
+    info "[11/11] 安装前端依赖并启动..."
     
     cd "$WEB_DIR"
     

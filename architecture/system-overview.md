@@ -69,7 +69,7 @@
 
 ## 关键特性
 
-1. **版本化购物车**: 共享购物车原子幂等消费 (V317 recipe_cart_state/version)
+1. **版本化购物车**: 共享购物车原子幂等消费 (V317 recipe_cart_state/version); 一人一菜一行 (V505 uk_recipe_creator, 同菜不同加购人各占一行)
 2. **预签名流式播放**: VideoPlayTicket 6h 签名票据 (不复用登录令牌)
 3. **FileSystemResource**: HTTP Range/206 支持 (seek/快进必需)
 4. **关联表驱动**: album_image_group_rel 是分组归属唯一来源

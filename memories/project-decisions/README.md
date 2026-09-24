@@ -124,6 +124,14 @@
 **决策**: 重复版本导致启动失败  
 **冲突**: 重命名表后避免重复添加已存在字段 (V303 重命名后 ADD COLUMN 需检查 V302)
 
+### 21. 购物车一人一菜一行
+**决策**: 同菜不同加购人各占一行, 不再合并 (v22)  
+**原因**: 唯一键 `uk_recipe(recipe_id)` 下一道菜全车只有一行, 两人加同一道菜会并进同一行 (qty 被覆盖), 分模块展示时另一个人的份数凭空消失  
+**迁移**: `V505` (user 号段) 洗完 NULL 后 `creator_id NOT NULL`, `uk_recipe` → `uk_recipe_creator(recipe_id, creator_id)`  
+**为何落 user 域**: 洗数据要读 `app_user` (V500 才建), 从零重建时 V3xx 排在 V500 前面子查询会报错 (与 V504 同理; 第一版误放 recipe/V320 已重编号)  
+**服务层**: `setItem` 改量/删行两分支都带 `.eq(creatorId)` 只动本人那一行 (不再是 insert-only), `clearCart` 仍整车清; `reorderOrder` 只回写调用人自己名下的行  
+**前端**: h5 `OrderPage` 派生 `myCart` (只收 `creatorId===meId`), 本人行渲染步进器、他人行只读 `×qty`; 车栏 `totalQty` 对整车求和
+
 ---
 
-*最后更新: 2026-09-23*
+*最后更新: 2026-09-24*

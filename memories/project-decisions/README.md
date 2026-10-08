@@ -132,6 +132,14 @@
 **服务层**: `setItem` 改量/删行两分支都带 `.eq(creatorId)` 只动本人那一行 (不再是 insert-only), `clearCart` 仍整车清; `reorderOrder` 只回写调用人自己名下的行  
 **前端**: h5 `OrderPage` 派生 `myCart` (只收 `creatorId===meId`), 本人行渲染步进器、他人行只读 `×qty`; 车栏 `totalQty` 对整车求和
 
+### 22. 上传/下载图片视频保留原件
+**决策**: 前端不再压缩画质, 上传下载一律保留原图原视频 (v23)  
+**推翻**: 旧的 `compressImage(file, 2560, 0.85)` 长边降采样 + JPEG 重编码  
+**原因**: 唯一损画质的环节在前端那次压缩——后端 `FileStorageWriter.write` 一直逐字落盘, 视频 `writeVideoStream` 从不转码  
+**实现**: `compressImage` → `prepareImageForUpload` (shared/src/image/prepare.ts, 删 compress.ts); 白名单命中的 jpeg/png/webp/gif 原样直传 (含 EXIF), 只有 HEIC 等非白名单格式才转全尺寸 quality 1.0 JPEG (不缩放) 以躲过后端 415  
+**缩略图**: 后端另存独立的 480px/0.8 JPEG (thumbKey) 只给列表显示, 预览与下载取原图 url  
+**覆盖**: 5 处调用点 (admin useAlbumImageUpload/RecipeEditPage/ProfilePage/UserCreateModal + h5 AlbumUploadSheet); EXIF 仍在转码前提取; 服务端零改动、零迁移
+
 ---
 
-*最后更新: 2026-09-24*
+*最后更新: 2026-10-08*

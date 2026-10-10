@@ -140,6 +140,17 @@
 **缩略图**: 后端另存独立的 480px/0.8 JPEG (thumbKey) 只给列表显示, 预览与下载取原图 url  
 **覆盖**: 5 处调用点 (admin useAlbumImageUpload/RecipeEditPage/ProfilePage/UserCreateModal + h5 AlbumUploadSheet); EXIF 仍在转码前提取; 服务端零改动、零迁移
 
+### 23. B 端左侧菜单改为公私域驱动
+**决策**: 家庭/个人各只显示一套菜单, 一个全局域开关, 不再让公私两套入口在同屏冗余并存 (v24)  
+**推翻**: 此前"家庭相册/个人相册两个平级一级项" + "文件/视频/密码本各挂公共·私人子项"  
+**核心**: 新增 `packages/admin/src/lib/domain.ts` (`Domain='FAMILY'|'PERSONAL'` + `useDomain()`); 家庭域 8 项 (首页/菜谱/点单/相册/文件/视频/密码本 + ADMIN 账号管理), 个人域只 4 项 (相册/文件/视频/密码本), 首页/菜谱/点单/账号管理无个人版  
+**域判定**: URL 为准、localStorage(`admin-domain`) 兜底; 路径能判域的 (`/album`/`/file`/`/video`/`/vault` 及 personal/private 前缀) 由路径定并回写 storage, 域无关页 (`/home`/`/recipe/*`/`/user`/`/profile`) 读 storage 沿用上次域  
+**刻意不用 React context**: `AdminLayout`、`CurrentUserBlock`、`DomainSwitch` 各自独立调 `useDomain()` 读同一 location, 三处永不脱钩  
+**两个切域入口**: ① 常驻域牌 `components/DomainSwitch.tsx` (侧栏菜单区之上 / 窄屏抽屉顶部, 家庭蓝 `#e6f4ff`·个人紫 `#f9f0ff` + `SwapOutlined`, 整块点一下即切, 收起态退化成图标按钮 + Tooltip); ② 头像下拉 `CurrentUserBlock` (家庭/个人打勾 ── 个人中心/注销)  
+**切域跳转**: `switchDomainPath` 跳当前模块的对应档 (家庭相册分组↔个人相册分组等), 无对应档回退落地页 (家庭 `/home`、个人 `/album/personal/groups`); 相册详情 `/album/:groupId` 的 groupId 分域专属, 跨域一律回退分组列表 (不套同一 id 避免 404)  
+**默认域**: 登录后默认家庭, `admin-domain` 在 `clearCurrentUser` 时刻意不清故跨注销保留、沿用上次退出的域  
+**范围**: 零迁移、后端零改动、路由表与页面组件一行未改; 只动菜单渲染 (`FAMILY_MENU_ITEMS`/`PERSONAL_MENU_ITEMS` + `resolveOpenKeys`) 与切域跳转; 数据隔离口径全部沿用 v14
+
 ---
 
-*最后更新: 2026-10-08*
+*最后更新: 2026-10-10*

@@ -31,6 +31,11 @@
 - **明文与哈希都不进日志**: PBEKeySpec 用完 clearPassword()
 - **盐本身不进日志**: 启动日志只打"就绪 + 算法"
 
+### 6. 删除口径
+- **业务数据软删 + 物理删文件**: markDeletedAndPurge (先软删行, 后物理删文件), 删前查全相册活引用
+- **字典/分组类硬删**: `file_category`、`file_group` 直接删行, 不留软删壳 (分组无上下架概念)
+- **⚠️ 级联不会替你做**: `file_object` 是软删、行还在, 故 `file_group_rel.file_id` 的 `ON DELETE CASCADE` 在删文档/视频时不触发, 服务层必须显式硬删关联行
+
 ## 前端规范
 
 ### 1. React 规范
@@ -46,14 +51,30 @@
 
 ### 3. UI 设计原则
 - **前端校验前移**: 非法选项要在前端就置灰/不展示
-- **弹窗/表单无解释性文案**: 用结构差异代替灰字解释
+- **弹窗/表单无解释性文案**: 用结构差异代替灰字解释 (例外: "域"这类概念本身的第一次解释要讲透一次)
 - **弹窗标题只放固定名词**: 元信息放正文
 - **复用平台通用样式**: 弹窗内表格也要一致
+- **敏感技术信息默认隐藏**: 存储路径等走问号图标 Tooltip, 不直接铺在页面上
 
 ### 4. C 端零组件库原则
 - **h5 用原生 `<video>`**: 不引 xgplayer (保持零构建耦合)
+- **手写 `fh-*` CSS**: 播放浮层/底部抽屉/预览器全部手写, 不引组件库
 - **shared 导出子路径**: 给 shared 加导出子路径必须重启 dev server
 - **playUrl 根相对**: h5 base `/` + vite proxy `/api`→:8080
+
+### 5. 公私域 (Domain) 实现约定
+- **刻意不用 React context**: B 端 `AdminLayout`、`CurrentUserBlock`、`DomainSwitch` 各自独立调 `useDomain()` 读同一 location, 三处永不脱钩
+- **域判定**: B 端 URL 为准 + `localStorage('admin-domain')` 兜底; C 端首页 URL 无 scope 段可派生, 只存本机 `h5-domain`
+- **两套 storage 互不串台**: `admin-domain` 与 `h5-domain` 各自独立
+- **`lib/domain.ts` 是唯一出处**: 两端各一份, 别在页面里另判域
+
+### 6. 加解密位置
+- **前端解密只准写在 `api/` 层**: 页面/组件里一行加解密都不许有
+- **明文只进组件 state**: 绝不落 localStorage/日志, 按需 reveal 不预取
+- **reveal 用 POST 不用 GET**: 触发审计日志、语义非幂等, 且避免密文进 access log / 浏览器历史
+
+### 7. 标签语义升级
+- **`<p>` 升 `<h1>` 必须显式写 `font-size`/`font-weight`**: 否则 UA heading 默认值会赢, 视觉突变
 
 ## Git 规范
 
@@ -77,4 +98,4 @@
 
 ---
 
-*最后更新: 2026-09-23*
+*最后更新: 2026-10-13*

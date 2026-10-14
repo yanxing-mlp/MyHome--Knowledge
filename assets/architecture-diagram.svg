@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1792" height="1024" viewBox="0 0 1792 1024" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Noto Sans SC, sans-serif">
+  <defs>
+    <linearGradient id="gBlue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1677ff"/><stop offset="1" stop-color="#4096ff"/></linearGradient>
+    <linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#722ed1"/><stop offset="1" stop-color="#9254de"/></linearGradient>
+    <linearGradient id="gMix" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1677ff"/><stop offset="1" stop-color="#722ed1"/></linearGradient>
+    <linearGradient id="gGate" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5b5bd6"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7a86e8"/></marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#389e0d"/></marker>
+  </defs>
+
+  <rect width="1792" height="1024" fill="#f5f7fb"/>
+  <text x="896" y="46" text-anchor="middle" font-size="30" font-weight="700" fill="#3b4fd8">MyHome Family Management System · 家庭 Home</text>
+  <text x="1610" y="42" text-anchor="end" font-size="12" fill="#8a9099">v31 · 2026-10-13</text>
+
+  <!-- ================= 左右横切栏 ================= -->
+  <g id="rail-left">
+    <rect x="16" y="16" width="150" height="992" rx="12" fill="#ffffff" stroke="#c9d4ee"/>
+    <rect x="16" y="16" width="150" height="54" rx="12" fill="url(#gMix)"/>
+    <rect x="16" y="46" width="150" height="24" fill="url(#gMix)"/>
+    <text x="91" y="38" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Cross-cutting</text>
+    <text x="91" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">横切关注点</text>
+
+    <!-- 1 会话令牌 -->
+    <circle cx="91" cy="120" r="20" fill="#e6f4ff" stroke="#91caff"/>
+    <path d="M91 110l9 4v6c0 6-4 10-9 12-5-2-9-6-9-12v-6z" fill="#1677ff"/>
+    <text x="91" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#1677ff">会话令牌认证</text>
+    <text x="91" y="178" text-anchor="middle" font-size="11" fill="#576066">HMAC-SHA256</text>
+    <text x="91" y="194" text-anchor="middle" font-size="11" fill="#576066">Bearer 逐请求验签</text>
+    <rect x="36" y="206" width="110" height="22" rx="6" fill="#e6f4ff" stroke="#91caff"/>
+    <text x="91" y="221" text-anchor="middle" font-size="11" fill="#1677ff">7 天有效期</text>
+    <line x1="30" y1="248" x2="152" y2="248" stroke="#d8e0f0" stroke-dasharray="4 4"/>
+
+    <!-- 2 数据分区 -->
+    <circle cx="91" cy="348" r="20" fill="#f9f0ff" stroke="#d3adf7"/>
+    <ellipse cx="91" cy="341" rx="10" ry="4" fill="#722ed1"/>
+    <path d="M81 341v12c0 2.2 4.5 4 10 4s10-1.8 10-4v-12c0 2.2-4.5 4-10 4s-10-1.8-10-4z" fill="#9254de"/>
+    <text x="91" y="386" text-anchor="middle" font-size="13" font-weight="700" fill="#722ed1">数据分区隔离</text>
+    <text x="91" y="406" text-anchor="middle" font-size="11" fill="#576066">PUBLIC 全家可见</text>
+    <text x="91" y="422" text-anchor="middle" font-size="11" fill="#576066">PRIVATE 仅自己</text>
+    <text x="91" y="438" text-anchor="middle" font-size="11" fill="#576066">ADMIN 无例外</text>
+    <rect x="36" y="450" width="110" height="22" rx="6" fill="#fff" stroke="#d3adf7"/>
+    <text x="91" y="465" text-anchor="middle" font-size="11" fill="#722ed1">跨区裸 ID 404</text>
+    <line x1="30" y1="492" x2="152" y2="492" stroke="#d8e0f0" stroke-dasharray="4 4"/>
+
+    <!-- 3 传输层加密 -->
+    <circle cx="91" cy="592" r="20" fill="#f9f0ff" stroke="#d3adf7"/>
+    <rect x="83" y="590" width="16" height="12" rx="2" fill="#722ed1"/>
+    <path d="M86 590v-4a5 5 0 0 1 10 0v4" fill="none" stroke="#722ed1" stroke-width="2.5"/>
+    <text x="91" y="630" text-anchor="middle" font-size="13" font-weight="700" fill="#722ed1">传输层加密</text>
+    <text x="91" y="650" text-anchor="middle" font-size="11" fill="#576066">口令 AES-GCM 加盐</text>
+    <text x="91" y="666" text-anchor="middle" font-size="11" fill="#576066">线上只有密文</text>
+    <rect x="36" y="678" width="110" height="22" rx="6" fill="#fff" stroke="#d3adf7"/>
+    <text x="91" y="693" text-anchor="middle" font-size="11" fill="#722ed1">https / localhost</text>
+    <line x1="30" y1="720" x2="152" y2="720" stroke="#d8e0f0" stroke-dasharray="4 4"/>
+
+    <!-- 4 公私域导航 -->
+    <circle cx="91" cy="820" r="20" fill="#e6f4ff" stroke="#91caff"/>
+    <path d="M91 800a20 20 0 0 1 0 40z" fill="#722ed1"/>
+    <path d="M91 800a20 20 0 0 0 0 40z" fill="#1677ff"/>
+    <text x="91" y="858" text-anchor="middle" font-size="13" font-weight="700" fill="#3b4fd8">公私域导航</text>
+    <text x="91" y="878" text-anchor="middle" font-size="11" fill="#576066">家庭 / 个人 两套</text>
+    <text x="91" y="894" text-anchor="middle" font-size="11" fill="#576066">菜单与入口收敛</text>
+    <text x="91" y="910" text-anchor="middle" font-size="11" fill="#576066">B 端 URL 为准</text>
+    <text x="91" y="926" text-anchor="middle" font-size="11" fill="#576066">C 端只存本机</text>
+    <rect x="36" y="938" width="110" height="22" rx="6" fill="#fff" stroke="#91caff"/>
+    <text x="91" y="953" text-anchor="middle" font-size="11" fill="#1677ff">切域不跳路由</text>
+  </g>
+  <use href="#rail-left" x="1610"/>
+
+  <!-- ================= 第一层 前端 ================= -->
+  <rect x="182" y="76" width="1428" height="256" rx="12" fill="#eef4ff" stroke="#c9d8f5"/>
+  <text x="266" y="188" text-anchor="middle" font-size="16" font-weight="700" fill="#1677ff">FRONTEND</text>
+  <text x="266" y="210" text-anchor="middle" font-size="11" fill="#576066">React 19 + TS 5.9</text>
+  <text x="266" y="226" text-anchor="middle" font-size="11" fill="#576066">pnpm monorepo</text>
+  <text x="266" y="242" text-anchor="middle" font-size="11" fill="#576066">shared 共享包</text>
+
+  <!-- B 端 -->
+  <rect x="352" y="90" width="610" height="228" rx="10" fill="#ffffff" stroke="#91caff"/>
+  <rect x="372" y="104" width="34" height="34" rx="8" fill="url(#gBlue)"/>
+  <rect x="380" y="112" width="18" height="12" rx="2" fill="#fff"/>
+  <rect x="386" y="126" width="6" height="4" fill="#fff"/>
+  <text x="418" y="120" font-size="16" font-weight="700" fill="#1677ff">B 端 Admin</text>
+  <text x="418" y="136" font-size="11" fill="#8a9099">antd v6 · 域驱动菜单：家庭 8 项 / 个人 4 项</text>
+  <text x="368" y="160" font-size="11" fill="#576066">常驻域牌 DomainSwitch + 头像下拉切域；域以 URL 为准、localStorage 兜底</text>
+  <g font-size="12" fill="#1f2a37">
+    <rect x="368" y="176" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="461" y="197" text-anchor="middle">相册（分组/图片/城市）</text>
+    <rect x="564" y="176" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="657" y="197" text-anchor="middle">菜谱 · 点单 · 统计</text>
+    <rect x="760" y="176" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="853" y="197" text-anchor="middle">文件 · 视频（分组）</text>
+    <rect x="368" y="220" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="461" y="241" text-anchor="middle">密码本（全量管理）</text>
+    <rect x="564" y="220" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="657" y="241" text-anchor="middle">账号管理 · 个人中心</text>
+    <rect x="760" y="220" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="853" y="241" text-anchor="middle">首页总览</text>
+  </g>
+  <text x="368" y="286" font-size="11" fill="#8a9099">菜谱 / 点单 / 账号管理无个人版；切域跳当前模块对应档</text>
+
+  <!-- C 端 -->
+  <rect x="978" y="90" width="618" height="228" rx="10" fill="#ffffff" stroke="#d3adf7"/>
+  <rect x="998" y="104" width="34" height="34" rx="8" fill="url(#gPurple)"/>
+  <rect x="1008" y="110" width="14" height="22" rx="3" fill="#fff"/>
+  <text x="1044" y="120" font-size="16" font-weight="700" fill="#722ed1">C 端 H5</text>
+  <text x="1044" y="136" font-size="11" fill="#8a9099">零组件库 · 手写 fh-* CSS · 域只存本机 h5-domain</text>
+  <text x="994" y="160" font-size="11" fill="#576066">头像下拉切域 + 只读域牌；登录页可预选域；入口家庭 4 项 / 个人 3 项</text>
+  <g font-size="12" fill="#1f2a37">
+    <rect x="994" y="176" width="190" height="34" rx="8" fill="#fdfaff" stroke="#d3adf7"/><text x="1089" y="197" text-anchor="middle">点餐 · 共享购物车</text>
+    <rect x="1194" y="176" width="190" height="34" rx="8" fill="#fdfaff" stroke="#d3adf7"/><text x="1289" y="197" text-anchor="middle">相册（看 + 上传）</text>
+    <rect x="1394" y="176" width="190" height="34" rx="8" fill="#fdfaff" stroke="#d3adf7"/><text x="1489" y="197" text-anchor="middle">视频（上传 + 播放）</text>
+    <rect x="994" y="220" width="190" height="34" rx="8" fill="#fdfaff" stroke="#d3adf7"/><text x="1089" y="241" text-anchor="middle">密码本（纯只读）</text>
+    <rect x="1194" y="220" width="190" height="34" rx="8" fill="#fdfaff" stroke="#d3adf7"/><text x="1289" y="241" text-anchor="middle">订单列表 / 详情</text>
+    <rect x="1394" y="220" width="190" height="34" rx="8" fill="#fdfaff" stroke="#d3adf7"/><text x="1489" y="241" text-anchor="middle">登录 · 注销</text>
+  </g>
+  <text x="994" y="286" font-size="11" fill="#8a9099">能看能传不能删；密码本连传都没有，管理动作一律留 B 端</text>
+
+  <!-- ================= 第二层 接口 ================= -->
+  <rect x="182" y="348" width="1428" height="80" rx="12" fill="#f3efff" stroke="#d8ccf2"/>
+  <text x="266" y="384" text-anchor="middle" font-size="15" font-weight="700" fill="#5b5bd6">API 分层</text>
+  <text x="266" y="402" text-anchor="middle" font-size="11" fill="#576066">路径分层 非代码分层</text>
+  <rect x="352" y="364" width="276" height="48" rx="10" fill="#ffffff" stroke="#91caff"/>
+  <text x="490" y="384" text-anchor="middle" font-size="14" font-weight="700" fill="#1677ff">/api/b/**</text>
+  <text x="490" y="401" text-anchor="middle" font-size="11" fill="#576066">B 端接口（分页 / 管理动作）</text>
+  <rect x="652" y="364" width="500" height="48" rx="10" fill="url(#gGate)"/>
+  <text x="902" y="384" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">Vite dev proxy + AuthInterceptor 验签</text>
+  <text x="902" y="401" text-anchor="middle" font-size="11" fill="#e6e1ff">+ Spring Boot Controllers（同一 service，两端各自裁剪响应）</text>
+  <rect x="1176" y="364" width="276" height="48" rx="10" fill="#ffffff" stroke="#d3adf7"/>
+  <text x="1314" y="384" text-anchor="middle" font-size="14" font-weight="700" fill="#722ed1">/api/c/**</text>
+  <text x="1314" y="401" text-anchor="middle" font-size="11" fill="#576066">C 端接口（全量数组 / 只读为主）</text>
+  <rect x="1466" y="364" width="130" height="48" rx="10" fill="#fff" stroke="#d8ccf2"/>
+  <text x="1531" y="384" text-anchor="middle" font-size="11" fill="#5b5bd6">去留判据</text>
+  <text x="1531" y="400" text-anchor="middle" font-size="11" fill="#576066">B 端有无调用方</text>
+  <line x1="630" y1="388" x2="650" y2="388" stroke="#7a86e8" stroke-width="2" marker-end="url(#arr)" marker-start="url(#arr)"/>
+  <line x1="1154" y1="388" x2="1174" y2="388" stroke="#7a86e8" stroke-width="2" marker-end="url(#arr)" marker-start="url(#arr)"/>
+
+  <!-- ================= 第三层 后端 ================= -->
+  <rect x="182" y="444" width="1428" height="182" rx="12" fill="#eefaf0" stroke="#bfe8c8"/>
+  <text x="266" y="520" text-anchor="middle" font-size="16" font-weight="700" fill="#389e0d">BACKEND</text>
+  <text x="266" y="542" text-anchor="middle" font-size="11" fill="#576066">Spring Boot 3.5</text>
+  <text x="266" y="558" text-anchor="middle" font-size="11" fill="#576066">Java 21</text>
+  <text x="266" y="574" text-anchor="middle" font-size="11" fill="#576066">MyBatis-Plus</text>
+  <text x="266" y="590" text-anchor="middle" font-size="11" fill="#576066">Flyway</text>
+
+  <g font-size="10.5" fill="#374a3a">
+    <rect x="352" y="458" width="198" height="152" rx="10" fill="#ffffff" stroke="#bfe8c8"/>
+    <circle cx="370" cy="478" r="6" fill="#52c41a"/><text x="382" y="482" font-size="12" font-weight="700" fill="#237804">fh-common</text>
+    <text x="366" y="506">Result / PageResult</text><text x="366" y="524">错误码 / 三态枚举</text><text x="366" y="542">SessionToken 签发</text><text x="366" y="560">TransportCipher</text><text x="366" y="578">DataPartition</text>
+
+    <rect x="560" y="458" width="198" height="152" rx="10" fill="#ffffff" stroke="#bfe8c8"/>
+    <circle cx="578" cy="478" r="6" fill="#52c41a"/><text x="590" y="482" font-size="12" font-weight="700" fill="#237804">fh-module-album</text>
+    <text x="574" y="506">分组三态上下架</text><text x="574" y="524">图片多分组关联</text><text x="574" y="542">城市写后重算</text><text x="574" y="560">covers / options</text><text x="574" y="578">EXIF 随绑定落库</text>
+
+    <rect x="768" y="458" width="198" height="152" rx="10" fill="#ffffff" stroke="#bfe8c8"/>
+    <circle cx="786" cy="478" r="6" fill="#52c41a"/><text x="798" y="482" font-size="12" font-weight="700" fill="#237804">fh-module-recipe</text>
+    <text x="782" y="506">分类 / 做法字典</text><text x="782" y="524">版本化共享购物车</text><text x="782" y="542">订单三态定稿</text><text x="782" y="560">点单统计聚合</text><text x="782" y="578">一人一菜一行</text>
+
+    <rect x="976" y="458" width="198" height="152" rx="10" fill="#ffffff" stroke="#bfe8c8"/>
+    <circle cx="994" cy="478" r="6" fill="#52c41a"/><text x="1006" y="482" font-size="12" font-weight="700" fill="#237804">fh-module-file</text>
+    <text x="990" y="506">file_object 原件</text><text x="990" y="524">480px 显示缩略图</text><text x="990" y="542">file_group 两级</text><text x="990" y="560">VideoPlayTicket 6h</text><text x="990" y="578">Range 流式播放</text>
+
+    <rect x="1184" y="458" width="198" height="152" rx="10" fill="#ffffff" stroke="#bfe8c8"/>
+    <circle cx="1202" cy="478" r="6" fill="#52c41a"/><text x="1214" y="482" font-size="12" font-weight="700" fill="#237804">fh-module-vault</text>
+    <text x="1198" y="506">账号保管</text><text x="1198" y="524">reveal 审计日志</text><text x="1198" y="542">C 端只读（405）</text><text x="1198" y="560">分区同相册口径</text>
+
+    <rect x="1392" y="458" width="198" height="152" rx="10" fill="#ffffff" stroke="#bfe8c8"/>
+    <circle cx="1410" cy="478" r="6" fill="#52c41a"/><text x="1422" y="482" font-size="12" font-weight="700" fill="#237804">fh-module-user</text>
+    <text x="1406" y="506">登录签发令牌</text><text x="1406" y="524">个人中心自助</text><text x="1406" y="542">账号管理 ADMIN</text><text x="1406" y="560">口令 PBKDF2 哈希</text>
+  </g>
+
+  <!-- ================= 第四层 数据 ================= -->
+  <rect x="182" y="684" width="1428" height="324" rx="12" fill="#eef2fb" stroke="#c9d4ee"/>
+  <text x="266" y="830" text-anchor="middle" font-size="16" font-weight="700" fill="#3b4fd8">DATA</text>
+  <text x="266" y="850" text-anchor="middle" font-size="16" font-weight="700" fill="#3b4fd8">LAYER</text>
+
+  <rect x="352" y="698" width="760" height="242" rx="10" fill="#ffffff" stroke="#91caff"/>
+  <text x="732" y="722" text-anchor="middle" font-size="13" font-weight="700" fill="#1677ff">MySQL 8.0 · 核心表（Flyway 管理，全表带 create/update_time）</text>
+  <g font-size="10.5" fill="#37424f">
+    <line x1="504" y1="736" x2="504" y2="928" stroke="#e3e9f5"/><line x1="656" y1="736" x2="656" y2="928" stroke="#e3e9f5"/><line x1="808" y1="736" x2="808" y2="928" stroke="#e3e9f5"/><line x1="960" y1="736" x2="960" y2="928" stroke="#e3e9f5"/>
+    <text x="366" y="752" font-weight="700" fill="#1677ff">user</text>
+    <text x="366" y="772">app_user</text>
+    <text x="366" y="794" fill="#8a9099">头像走 file_object</text>
+    <text x="518" y="752" font-weight="700" fill="#1677ff">album</text>
+    <text x="518" y="772">album_group</text><text x="518" y="790">album_image</text><text x="518" y="808">album_image_group_rel</text><text x="518" y="826">album_city</text>
+    <text x="670" y="752" font-weight="700" fill="#1677ff">recipe</text>
+    <text x="670" y="772">recipe</text><text x="670" y="790">recipe_category(_rel)</text><text x="670" y="808">recipe_practice_group</text><text x="670" y="826">recipe_practice_option</text><text x="670" y="844">recipe_practice_rel</text><text x="670" y="862">recipe_cart_item</text><text x="670" y="880">recipe_cart_state</text><text x="670" y="898">recipe_order</text><text x="670" y="916">recipe_order_item</text>
+    <text x="822" y="752" font-weight="700" fill="#1677ff">file / video</text>
+    <text x="822" y="772">file_object</text><text x="822" y="790">file_category</text><text x="822" y="808">file_group</text><text x="822" y="826">file_group_rel</text><text x="822" y="848" fill="#8a9099">视频不建表：</text><text x="822" y="864" fill="#8a9099">biz_type=video</text>
+    <text x="974" y="752" font-weight="700" fill="#1677ff">vault</text>
+    <text x="974" y="772">vault_account</text>
+  </g>
+
+  <rect x="1128" y="698" width="468" height="242" rx="10" fill="#ffffff" stroke="#d3adf7"/>
+  <text x="1362" y="722" text-anchor="middle" font-size="13" font-weight="700" fill="#722ed1">本地文件系统 · 保留原件</text>
+  <g font-size="11.5" fill="#37424f">
+    <rect x="1148" y="738" width="14" height="11" rx="2" fill="#9254de"/><text x="1172" y="748">files/　图片原件（含 EXIF）</text>
+    <rect x="1148" y="762" width="14" height="11" rx="2" fill="#9254de"/><text x="1172" y="772">thumbs/　480px 显示缩略图</text>
+    <rect x="1148" y="786" width="14" height="11" rx="2" fill="#9254de"/><text x="1172" y="796">videos/　视频原件，从不转码</text>
+    <rect x="1148" y="810" width="14" height="11" rx="2" fill="#9254de"/><text x="1172" y="820">private-*/　分区目录</text>
+  </g>
+  <line x1="1148" y1="838" x2="1576" y2="838" stroke="#e6def5"/>
+  <g font-size="11" fill="#576066">
+    <text x="1148" y="858">前端不压缩画质：白名单原图直传，</text>
+    <text x="1148" y="874">仅 HEIC 转全尺寸 JPEG</text>
+    <text x="1148" y="896">视频播放走 6h 签名票据流，不吃静态直链</text>
+    <text x="1148" y="918">图片/文档静态 URL 不鉴权（已知边界）</text>
+  </g>
+
+  <rect x="352" y="952" width="1244" height="42" rx="10" fill="#ffffff" stroke="#c9d4ee"/>
+  <text x="372" y="978" font-size="11.5" fill="#576066">Flyway 迁移号段：album V2xx　recipe V3xx　file V1xx　user V5xx　video V6xx　·　版本号必须唯一，重命名表后 ADD COLUMN 先查旧迁移</text>
+
+  <!-- 层间箭头 -->
+  <line x1="657" y1="318" x2="657" y2="344" stroke="#7a86e8" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="1287" y1="318" x2="1287" y2="344" stroke="#7a86e8" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="902" y1="428" x2="902" y2="440" stroke="#389e0d" stroke-width="2" marker-end="url(#arrG)"/>
+  <line x1="902" y1="630" x2="902" y2="680" stroke="#389e0d" stroke-width="2" marker-end="url(#arrG)"/>
+</svg>

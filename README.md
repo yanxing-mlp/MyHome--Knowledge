@@ -10,7 +10,8 @@ MyHome--Knowledge/
 ├── architecture/
 │   └── system-overview.md           # 系统总览（技术栈/架构原则/模块边界/C 端能力边界/风险）
 ├── assets/
-│   └── architecture-diagram.png     # 系统架构图
+│   ├── architecture-diagram.png     # 系统架构图（v31 版渲染产物）
+│   └── architecture-diagram.svg     # 架构图源文件（改图改它，再渲染成 png）
 ├── development-standards/
 │   └── coding-conventions.md        # 编码规范
 ├── memories/                        # 记忆点（经验教训）
@@ -83,6 +84,9 @@ MyHome--Knowledge/
 - **记忆点**：来自实际开发过程中的经验教训和用户反馈
 - **方案文档**：记录各阶段的设计决策和实施细节
 - **技术规范**：随项目演进持续更新
+- **架构图**：`assets/architecture-diagram.svg` 是唯一图源，png 只是渲染产物。改图只改 svg，然后：
+  `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=1792,1024 --screenshot=assets/architecture-diagram.png assets/architecture-diagram.svg`
+  （任何 headless Chrome 都行；`--force-device-scale-factor=2` 出 2 倍图保证文字清晰）
 
 ---
 

@@ -1,16 +1,8 @@
 {
   "platform": "windows-x64",
-  "formatVersion": 3,
+  "formatVersion": 4,
   "offline": false,
-  "runMode": "source",
-  "git": {
-    "version": "2.47.1",
-    "file": "MinGit-2.47.1-64-bit.zip",
-    "directory": "",
-    "url": "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/MinGit-2.47.1-64-bit.zip",
-    "algorithm": "SHA256",
-    "hash": "50b04b55425b5c465d076cdb184f63a0cd0f86f6ec8bb4d5860114a713d2c29a"
-  },
+  "runMode": "artifact",
   "jdk": {
     "version": "21.0.11",
     "file": "zulu21.50.19-ca-jdk21.0.11-win_x64.zip",
@@ -18,30 +10,6 @@
     "url": "https://cdn.azul.com/zulu/bin/zulu21.50.19-ca-jdk21.0.11-win_x64.zip",
     "algorithm": "SHA256",
     "hash": "84c73a4dcf8400ac01c1fe2d622cc319199e93c1856c200cb50c1bc16dc7dc97"
-  },
-  "node": {
-    "version": "22.23.3",
-    "file": "node-v22.23.3-win-x64.zip",
-    "directory": "node-v22.23.3-win-x64",
-    "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-win-x64.zip",
-    "algorithm": "SHA256",
-    "hash": "2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71"
-  },
-  "maven": {
-    "version": "3.9.9",
-    "file": "apache-maven-3.9.9-bin.zip",
-    "directory": "apache-maven-3.9.9",
-    "url": "https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip",
-    "algorithm": "SHA256",
-    "hash": "4ec3f26fb1a692473aea0235c300bd20f0f9fe741947c82c1234cefd76ac3a3c"
-  },
-  "pnpm": {
-    "version": "10.11.0",
-    "file": "pnpm-10.11.0.tgz",
-    "directory": "package",
-    "url": "https://registry.npmjs.org/pnpm/-/pnpm-10.11.0.tgz",
-    "algorithm": "SHA256",
-    "hash": "a69e9cb077da419d47d18f1dd52e207245b29cac6e076acedbeb8be3b1a67bd7"
   },
   "mysql": {
     "version": "8.4.11",
@@ -57,28 +25,30 @@
     "algorithm": "SHA256",
     "hash": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b"
   },
-  "repos": {
-    "server": {
-      "label": "后端 · family-home-server",
-      "url": "https://github.com/yanxing-mlp/MyHome.git",
-      "branch": "master",
-      "directory": "src/server"
-    },
-    "web": {
-      "label": "前端 · family-home-web",
-      "url": "https://github.com/yanxing-mlp/MyHome-React.git",
-      "branch": "master",
-      "directory": "src/web"
-    }
+  "app": {
+    "note": "应用产物包：后端 fat JAR + 两份已构建前端 dist + version.json，随包携带于 runtime/。首次部署解包直跑，不再 git clone / mvn / pnpm。hash 由打包器按实际捆绑的 zip 重写。",
+    "file": "MyHome-app-payload.zip",
+    "version": "v20261022-cbd993a",
+    "jar": "family-home-server.jar",
+    "adminDir": "admin",
+    "h5Dir": "h5",
+    "algorithm": "SHA256",
+    "hash": "cd4cc8bc66c26c4bee4533f707f367f94bc5366669c122f2a2d1416d7d2426d9"
+  },
+  "update": {
+    "note": "「部署最新」在线升级通道：从 GitHub Release 拉取最新产物包，校验 SHA256 后原子替换 app/ 并重启后端（Flyway 随新 JAR 的 classpath 自动迁移）。releases/latest/download/<asset> 走 GitHub 稳定重定向，无需解析 Release API。",
+    "channel": "github-release",
+    "repo": "yanxing-mlp/MyHome",
+    "versionAsset": "version.json",
+    "payloadAsset": "MyHome-app-payload.zip"
   },
   "ports": {
     "db": 13306,
-    "backend": 8080,
-    "admin": 5173,
-    "h5": 5174
+    "backend": 8080
   },
   "transportSalt": {
-    "frontendEnv": "VITE_FH_TRANSPORT_CRYPTO_SALT",
+    "note": "口令传输段加密的盐：固定公开值，随两份 dist 构建期烘焙（VITE_FH_TRANSPORT_CRYPTO_SALT），后端运行时必须用同一个值。不是访问控制、不逐安装随机。引擎实际注入值以解包后 app/version.json 的 transportSalt 为准（与 dist 同源），此处仅供打包校验与文档。",
+    "value": "7524e9f1924f761b06c6aad30d767874",
     "backendEnv": "FH_TRANSPORT_CRYPTO_SALT",
     "backendProperty": "fh.transport-crypto.salt"
   }

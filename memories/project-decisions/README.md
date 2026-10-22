@@ -280,6 +280,16 @@
 **Git 用系统的** (无官方独立 unix git 二进制), 缺失时按平台给安装指引  
 **旧离线预编译总包与 unix-deploy.py 流水线已退役删除**
 
+### 42. 部署模型翻转回「产物直跑」+ Topology A 单端口 (推翻 41 的源码直跑)
+**决策**: 用户明确「希望通过运行前后端打的包来运行, 而不是 git pull」, v53 的联网·源码直跑整体翻转回产物直跑 (v57); 交付物仍是三平台总包 `MyHome-OneClick.zip`, 但内置预编译产物 (`build-payload.py` 出 `MyHome-app-payload.zip` = fat JAR + admin/h5 两个 dist + `schema-snapshot.sql` + `version.json`), 部署即解包 `app/` 后 `java -jar`, **全程无 git/mvn/pnpm/node, 首次部署即可离线**  
+**运行拓扑 = Topology A**: Spring Boot :8080 同源 serve `/admin/`(B 端) 与 `/`(C 端), 无反代; 运行时只剩后端 JAR + MySQL, 端口从四个 (5173/5174/8080/13306) 收敛到两个 (8080/13306), 旧 dev 端口退役  
+**工具链精简到运行必需**: 只留 JDK 21 + MySQL(+Windows VC++), 移除 Maven/pnpm/Node/Git 及全部克隆逻辑  
+**升级通道 = GitHub Release 下载**: 发版把产物包传 Releases, 「部署管理」页「部署最新」查最新 release → 下载 → 校验 SHA-256 → 原子换 `app/`(app.new 暂存对调, 旧留 app.old) → 重启; **哈希通过前绝不碰 app/**; latest-asset URL `/releases/latest/download/<asset>` public 仓无需 token, 未发 release 时 404 优雅降级  
+**空库冷启动靠 schema 快照**: Flyway 严格版本序回放在 V103 (文件域引用未建的 album/recipe 表) 崩, 故 `family_home` 零表时先加载随包 `schema-snapshot.sql`(`gen-schema-snapshot.py` 真库跑完迁移后 mysqldump, **含真实 Flyway 历史, 绝不伪造/baseline/repair**) 再启后端 → Flyway no-op; 「部署包的 SQL」= 迁移随 fat JAR 走 classpath, 重打 JAR 即带上  
+**`packages.json` formatVersion=4 / runMode="artifact"**: 引擎 `assert_artifact_install` 拒接管旧源码/离线安装; `package-master.py` 的 `staged_manifest_bytes()` 把 `app.hash`/`app.version` 改写成实际 payload 值让本地校验对上  
+**传输盐固定公开值** `7524e9f1924f761b06c6aad30d767874` (构建期烘进两 dist + 后端同值, 非访问控制/非每装机随机)  
+**验证边界**: macOS-arm64 引擎真机功能验证 + 总包静态校验过; Windows/Linux 真机、真实 release 端到端升级、部署机空库冷启动均未跑
+
 ---
 
 *最后更新: 2026-10-22*

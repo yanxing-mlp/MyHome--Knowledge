@@ -18,8 +18,8 @@ MyHome--Knowledge/
 │   ├── feedback/README.md           # 用户反馈与行为模式
 │   └── project-decisions/README.md  # 项目决策记录（含 v24~v56 演进，系统后台/RBAC/数据库页等）
 ├── plans/
-│   └── phase1-roadmap.md            # 一期方案（含完整变更记录，当前 v56）
-└── deployment/                      # 部署脚本（联网源码直跑 · 三平台）
+│   └── phase1-roadmap.md            # 一期方案（含完整变更记录，当前 v57）
+└── deployment/                      # 部署脚本（产物直跑 · 三平台）
     ├── README.md                    # 部署指南（总包结构 + 三平台入口 + 打包 + 验证边界）
     ├── 执行说明.md                   # 三平台共享执行说明（含平台差异表）
     ├── windows/                     # Windows x64：.cmd 入口 + myhome-windows.ps1 + packages.json
@@ -74,7 +74,7 @@ MyHome--Knowledge/
 
 ## 部署
 
-交付物是一个总包 `MyHome-OneClick.zip`，内含 `windows-x64/`、`macos-arm64/`、`linux-x64/` 三个平台子目录和一份共享 `执行说明.md`。模型是**联网 · 源码直跑**：工具链（JDK/Node/Maven/pnpm/MySQL，Windows 另含 Git/VC++）随包提供并核对哈希，应用源码部署时按 `packages.json` 联网克隆，后端 `mvn spring-boot:run`、前端 `pnpm dev` 直接跑。
+交付物是一个总包 `MyHome-OneClick.zip`，内含 `windows-x64/`、`macos-arm64/`、`linux-x64/` 三个平台子目录和一份共享 `执行说明.md`。模型是**产物直跑**（v57）：工具链只保留运行必需的 JDK 21 + MySQL 8.4（Windows 另含 VC++）随包核哈希，构建好的应用产物包（后端 fat JAR + 两份已构建前端 dist + schema 快照 + 版本戳）也随包携带；首次部署解到 `app/` 用 `java -jar` 起后端，后端**单端口 8080** 同时托管管理后台 `/admin/` 与 C 端 `/`（Topology A，同源、无反代）。不再 `git clone` / `mvn` / `pnpm` / `node`，首次部署可离线；「部署最新」从 GitHub Release 拉新产物包、校验 SHA-256 后原子替换 `app/` 再重启。
 
 - **Windows**：`01-deploy.cmd` / `02-start.cmd` / `03-stop.cmd` / `04-update.cmd`，引擎 `myhome-windows.ps1`。
 - **macOS / Linux**：同名 `.sh` 入口，共用引擎 `common/myhome-unix.sh`（靠 `uname` 分流）。

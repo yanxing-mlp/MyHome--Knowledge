@@ -210,6 +210,76 @@
 **未动**: `packages/h5/index.html` 的 `<title>` 与 `shared/src/brand/logo.ts` 的 `FH_LOGO_ALT` 里那两处「家庭 Home」是不可见字符串 (后者 B/C 共用), 刻意保留  
 **范围**: 纯 CSS + JSX 结构, 零迁移、后端零改动、路由与 `entries.ts` 未动
 
+## 系统后台与运维决策（v32~v56）
+
+### 31. 三档固定角色 RBAC + 可编辑权限勾选矩阵
+**决策**: 角色固定三档 `SUPER_ADMIN/ADMIN/MEMBER` 不可增删; 权限项固定 23 码 (`PermissionCatalog`); 可配置的只有「某档勾选了哪些权限」(v48)  
+**原因**: 角色与权限项都不让超管在页面上增删, 否则就成了"自己给自己造一把新钥匙"; 可编辑的只有勾选矩阵这一层  
+**实现**: 勾选存 `role_permission` 表 (V506, role+permission 联合主键), 超管在「角色管理」页编辑; SUPER_ADMIN 不入库、在 `can()`/`resolve` 短路全有  
+**门禁分工**: 写操作逐个 `requirePermission(<mod>.manage)`、系统页逐个 `requirePermission(<page>.access)`; **业务读接口只要登录态、不由 `.view` 在后端拦** (`.view` 只驱动前端菜单/路由 403)  
+**前端判据**: 一律 `can(user, code)`, 任何 `role === 'ADMIN'` 的写法对超管都会假
+
+### 32. 单超管不变式 + 账号删除放宽
+**决策**: 全系统只能有一个超级管理员 (不可交接/不可提第二人/超管行不可改不可删/不能改自己); 账号删除只挡超管, 普通管理员与成员都可删 (v50)  
+**原因**: 超管是硬编码短路的身份, 不是勾选出来的; 放宽删除是用户明确要「只有超管不允许被删除」  
+**实现**: `updateRole` 三道护栏 + `delete` 只挡超管; 角色下拉「超级管理员」永久置灰 (非法选项前端就置灰)  
+**无需迁移**: 种子链 V500→V506 在全新部署上恰好产出一个超管, 不变式由既有数据天然满足
+
+### 33. 系统后台一级菜单归组
+**决策**: 账号/角色/目录/变更记录/部署/日志/操作记录/知识库/后端代码/前端代码/数据库十一项收进「系统后台」一个父菜单 (v47 起, 逐步扩到 11 项)  
+**实现**: 纯前端菜单归组 (`sub-system`), 零后端/零迁移/零路由改动; 子项不带图标; 桌面 Sider 与窄屏 Drawer 共用同一份 menu JSX  
+**门禁**: 整组只有拿得到相应 `.access` 的角色才出现; 路由仍无条件注册, 无权限者敲 URL 由页面 403 分支拦
+
+### 34. 操作审计 + 单请求 traceId 日志回溯
+**决策**: 读写全记 (GET/POST/PUT/DELETE)、区分 B/C 端、前端带页面头 `X-Op-Page` + 后端动作字典、出入参脱敏、可配保留天数 (v45); 每请求一枚 traceId 同时落日志 `[traceId]` 段 + `operation_log.trace_id` + 响应头 `X-Trace-Id`, 系统日志页按 traceId 过滤回溯 (v46)  
+**采集架构**: `OperationLogCachingFilter` 包请求/响应 + `OperationLogInterceptor.afterCompletion` 组装 + 单守护线程池异步落库 (队列满即丢, 绝不给业务加延迟)  
+**两个关键顺序/边界**: 拦截器注册在 `CurrentUserInterceptor` 之后 (逆序回调才能拿到操作人); multipart/流式响应不缓存 body (OOM 防护)  
+**traceId 从 request attribute 取而非 MDC**: 审计异步落库, MDC 不跨线程; `TraceIdFilter` 最高优先级 + `finally` 里 `MDC.remove`  
+**日志回溯是 v43「极简无过滤器」的唯一定向例外** (用户明确授权, 只此一个 traceId 过滤器, 纯视图层过滤不碰 tail/offset)
+
+### 35. 系统日志页：目录锚定 + 保留天数驱动 logback
+**决策**: 多文件切换 + 实时 tail (~1.5s 轮询增量) + 自动滚底, 无 level/keyword 过滤器 (v43); 保留天数超管可配、默认 7 (v44)  
+**目录锚定**: `logging.file.name` 的父目录——部署机由 ps1/unix 引擎注入 `LOGGING_FILE_NAME`, dev 为空则优雅退化空态  
+**保留天数单一机制**: 页面值直接驱动 logback `maxHistory`, 不另写 `@Scheduled` 自管清理 (会和 logback 自己的 max-history 打架); 运行期立即生效靠反射改 private `archiveRemover`, 失败降级「下次重启生效」; 持久化 `logs/log-settings.json` + 启动回放
+
+### 36. 部署管理：分离 launcher + 进度文件跨重启接续
+**决策**: 「部署最新」的后端正是要被 `taskkill` 重启的那个, 故后端只「分离拉起 `FH_DEPLOY_LAUNCHER` + 读 `FH_DEPLOY_PROGRESS_FILE`」, 绝不自己改代码/杀进程 (v41); 部署历史独立成「部署管理」页、变更记录页退回只读 (v42)  
+**进度接续**: 进度写 `logs/deploy-status.json` (原子写), 新后端读同一文件、前端轮询无缝续, 重启那几秒显「服务重启中」+ 无限重试  
+**历史**: 分离脚本在终态 (done/failed) 头插 `deploy-history.json` (上限 50/按 runId 去重/原子写), 后端只读原样回吐; 点火失败只写 failed 不写历史  
+**ps1 必须 `ConvertTo-Json -InputObject`**: 管道会展开单元素数组破坏后端 `isArray()`
+
+### 37. 变更记录：实时优先 + 快照兜底 + 当前运行版本
+**决策**: 两仓 commit 走 GitHub 公开 API 循环翻页拉全量 (per_page=100, MAX_PAGES=100 安全阀), 拉不到回退构建期 `change-log.json` 快照 (v39); 每仓标「当前运行版本」(v40)  
+**分页/时间/commitId 过滤全在前端这份全量列表上做客户端处理**, 后端不接查询参数  
+**runningCommit 只认快照**: 运行中的永远是打包那一刻的 commit, 与列表来源 (live/snapshot) 无关 (v41 起源码直跑改环境变量优先)  
+**鉴权**: `requireAdmin` (完整 commit 历史属敏感技术信息); 零新依赖 (JDK HttpClient)
+
+### 38. 在线仓库编辑引擎 RepoService 泛化
+**决策**: 知识库/后端代码/前端代码三页共用一个 `RepoService` 引擎——浏览目录树 + 编辑文本白名单文件 + 本地保存 + 一键 `git add/commit/push` (v49 知识库, v51 泛化出代码两页)  
+**推送是进程内同步跑**: 不杀后端, 与部署的分离 launcher 本质不同 (部署必须分离是因为 Update 会 taskkill 自身)  
+**仓库根目录靠 env 配** (`FH_KNOWLEDGE_REPO_DIR`/`FH_SERVER_REPO_DIR`/`FH_WEB_REPO_DIR`), 未配置优雅降级 `available:false`; 不建表不落库  
+**零回归**: v51 把 `KnowledgeService` 改成薄委托, v49 的 controller/api/页面一字未改
+
+### 39. 可视化数据库管理页（全系统权限最高）
+**决策**: 表数据行内增删查改 + 结构化改表结构 (含表级说明) + 只读索引清单 + 任意 SQL (读+写+DDL 全放开) + 每日 mysqldump 备份与保留天数 (v52~v56)  
+**SQL 全放开的风险兜底**: 前端二次确认 (写/DDL 弹确认框) + 仅超管门禁 (`database.access`, 第 23 码); 能跑任意 SQL 的人本就能跑任意 DDL, 故 DDL 表单只是便利不是安全边界  
+**结构化路杜绝注入**: 标识符逐个 `^[A-Za-z0-9_]+$` 校验 + 反引号包裹, 值一律 `PreparedStatement` 占位符; 表说明值走 `quoteLiteral` 转义  
+**备份凭据安全**: 写进用完即删 (finally) 的 0600 临时选项文件, 绝不拼进命令行 (命令行在进程列表对所有本地用户可见)  
+**备份目录锚定**: `logging.file.name` 祖父目录/backups; dev 无日志文件则备份能力优雅退化, 浏览/改数据/跑 SQL 照常  
+**索引只读**: `SHOW INDEX` 按 Key_name 聚合 (LinkedHashMap 保序), 前缀索引标 `列名(长度)`、函数索引显示 Expression; 改索引请到 SQL 页
+
+### 40. 多目录存储与目录管理
+**决策**: B 端家庭域「目录管理」仅超管可见, 登记服务器目录 + 切换默认上传 + 目录占用统计 (v36~v38)  
+**不可变路径**: V110 `file_storage_directory` 存不可变路径/磁盘身份/默认选择; 旧 key 固定目录 1, 新目录 key 带 `_storage/{id}/`; 旧环境变量不能重新解释历史路径, 掉盘不自动回退  
+**新增目录走服务器目录选择** (非访问者本机原生文件窗口), 只选已有空目录、不新增 mkdir  
+**公开 `/files/**` 必须反代 Java 多目录解析**, 不能单根 alias
+
+### 41. 三平台联网源码直跑部署总包
+**决策**: 交付物一个总包 `MyHome-OneClick.zip`, 含 windows-x64/macos-arm64/linux-x64 三平台 + 一份共享执行说明; 模型是联网·源码直跑 (工具链随包核哈希, 源码部署时按 `packages.json` 联网克隆, `mvn spring-boot:run`/`pnpm dev` 直跑) (v53)  
+**共享 bash 引擎** `common/myhome-unix.sh` 靠 `uname` 分流; ⚠️ 所有日志/消息必须走 stderr, 否则污染 `$(func)` 捕获的返回值  
+**Git 用系统的** (无官方独立 unix git 二进制), 缺失时按平台给安装指引  
+**旧离线预编译总包与 unix-deploy.py 流水线已退役删除**
+
 ---
 
-*最后更新: 2026-10-13*
+*最后更新: 2026-10-22*

@@ -10,7 +10,7 @@
 
   <rect width="1792" height="1024" fill="#f5f7fb"/>
   <text x="896" y="46" text-anchor="middle" font-size="30" font-weight="700" fill="#3b4fd8">MyHome Family Management System · 家庭 Home</text>
-  <text x="1610" y="42" text-anchor="end" font-size="12" fill="#8a9099">v31 · 2026-10-13</text>
+  <text x="1610" y="42" text-anchor="end" font-size="12" fill="#8a9099">v56 · 2026-10-22</text>
 
   <!-- ================= 左右横切栏 ================= -->
   <g id="rail-left">
@@ -65,7 +65,45 @@
     <rect x="36" y="938" width="110" height="22" rx="6" fill="#fff" stroke="#91caff"/>
     <text x="91" y="953" text-anchor="middle" font-size="11" fill="#1677ff">切域不跳路由</text>
   </g>
-  <use href="#rail-left" x="1610"/>
+
+  <!-- ================= 右栏：RBAC + 系统后台 ================= -->
+  <g id="rail-right">
+    <rect x="1610" y="16" width="150" height="992" rx="12" fill="#ffffff" stroke="#c9d4ee"/>
+    <rect x="1610" y="16" width="150" height="54" rx="12" fill="url(#gGate)"/>
+    <rect x="1610" y="46" width="150" height="24" fill="url(#gGate)"/>
+    <text x="1685" y="38" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">RBAC · 系统后台</text>
+    <text x="1685" y="56" text-anchor="middle" font-size="11.5" font-weight="700" fill="#e6e1ff">11 页 · 仅超管逐页</text>
+
+    <!-- 三档角色 -->
+    <text x="1685" y="96" text-anchor="middle" font-size="13" font-weight="700" fill="#5b5bd6">三档固定角色</text>
+    <rect x="1622" y="106" width="126" height="24" rx="6" fill="#fffbe6" stroke="#ffe58f"/>
+    <text x="1685" y="122" text-anchor="middle" font-size="10" fill="#ad6800">超级管理员 · 全权限</text>
+    <rect x="1622" y="134" width="126" height="24" rx="6" fill="#e6f4ff" stroke="#91caff"/>
+    <text x="1685" y="150" text-anchor="middle" font-size="10" fill="#1677ff">普通管理员 · 业务</text>
+    <rect x="1622" y="162" width="126" height="24" rx="6" fill="#f5f5f5" stroke="#d9d9d9"/>
+    <text x="1685" y="178" text-anchor="middle" font-size="10" fill="#576066">普通成员 · 只读</text>
+    <text x="1685" y="202" text-anchor="middle" font-size="10" fill="#576066">23 权限码（固定）</text>
+    <text x="1685" y="217" text-anchor="middle" font-size="10" fill="#576066">12 业务 + 11 系统</text>
+    <rect x="1622" y="228" width="126" height="42" rx="6" fill="#f3efff" stroke="#d8ccf2"/>
+    <text x="1685" y="245" text-anchor="middle" font-size="9.5" fill="#5b5bd6">超管短路全有</text>
+    <text x="1685" y="261" text-anchor="middle" font-size="9.5" fill="#5b5bd6">全系统仅一个超管</text>
+    <line x1="1624" y1="286" x2="1746" y2="286" stroke="#d8e0f0" stroke-dasharray="4 4"/>
+
+    <!-- 11 页 -->
+    <g font-size="12" fill="#1f2a37">
+      <circle cx="1626" cy="319" r="4" fill="#1677ff"/><text x="1638" y="323">账号管理</text><text x="1638" y="341" font-size="9" fill="#8a9099">user.access</text>
+      <circle cx="1626" cy="383" r="4" fill="#1677ff"/><text x="1638" y="387">角色管理</text><text x="1638" y="405" font-size="9" fill="#8a9099">role.access</text>
+      <circle cx="1626" cy="447" r="4" fill="#1677ff"/><text x="1638" y="451">目录管理</text><text x="1638" y="469" font-size="9" fill="#8a9099">storage.access</text>
+      <circle cx="1626" cy="511" r="4" fill="#389e0d"/><text x="1638" y="515">变更记录</text><text x="1638" y="533" font-size="9" fill="#8a9099">changelog.access</text>
+      <circle cx="1626" cy="575" r="4" fill="#389e0d"/><text x="1638" y="579">部署管理</text><text x="1638" y="597" font-size="9" fill="#8a9099">deploy.access</text>
+      <circle cx="1626" cy="639" r="4" fill="#389e0d"/><text x="1638" y="643">系统日志</text><text x="1638" y="661" font-size="9" fill="#8a9099">logs.access</text>
+      <circle cx="1626" cy="703" r="4" fill="#389e0d"/><text x="1638" y="707">操作记录</text><text x="1638" y="725" font-size="9" fill="#8a9099">oplog.access</text>
+      <circle cx="1626" cy="767" r="4" fill="#722ed1"/><text x="1638" y="771">知识库</text><text x="1638" y="789" font-size="9" fill="#8a9099">knowledge.access</text>
+      <circle cx="1626" cy="831" r="4" fill="#722ed1"/><text x="1638" y="835">后端代码</text><text x="1638" y="853" font-size="9" fill="#8a9099">server-repo.access</text>
+      <circle cx="1626" cy="895" r="4" fill="#722ed1"/><text x="1638" y="899">前端代码</text><text x="1638" y="917" font-size="9" fill="#8a9099">web-repo.access</text>
+      <circle cx="1626" cy="959" r="4" fill="#d4380d"/><text x="1638" y="963">数据库</text><text x="1638" y="981" font-size="9" fill="#8a9099">database.access</text>
+    </g>
+  </g>
 
   <!-- ================= 第一层 前端 ================= -->
   <rect x="182" y="76" width="1428" height="256" rx="12" fill="#eef4ff" stroke="#c9d8f5"/>
@@ -80,17 +118,17 @@
   <rect x="380" y="112" width="18" height="12" rx="2" fill="#fff"/>
   <rect x="386" y="126" width="6" height="4" fill="#fff"/>
   <text x="418" y="120" font-size="16" font-weight="700" fill="#1677ff">B 端 Admin</text>
-  <text x="418" y="136" font-size="11" fill="#8a9099">antd v6 · 域驱动菜单：家庭 8 项 / 个人 4 项</text>
+  <text x="418" y="136" font-size="11" fill="#8a9099">antd v6 · 业务菜单（域驱动）+ 系统后台 11 页（见右栏）</text>
   <text x="368" y="160" font-size="11" fill="#576066">常驻域牌 DomainSwitch + 头像下拉切域；域以 URL 为准、localStorage 兜底</text>
   <g font-size="12" fill="#1f2a37">
     <rect x="368" y="176" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="461" y="197" text-anchor="middle">相册（分组/图片/城市）</text>
     <rect x="564" y="176" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="657" y="197" text-anchor="middle">菜谱 · 点单 · 统计</text>
     <rect x="760" y="176" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="853" y="197" text-anchor="middle">文件 · 视频（分组）</text>
     <rect x="368" y="220" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="461" y="241" text-anchor="middle">密码本（全量管理）</text>
-    <rect x="564" y="220" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="657" y="241" text-anchor="middle">账号管理 · 个人中心</text>
-    <rect x="760" y="220" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="853" y="241" text-anchor="middle">首页总览</text>
+    <rect x="564" y="220" width="186" height="34" rx="8" fill="#f5faff" stroke="#91caff"/><text x="657" y="241" text-anchor="middle">首页总览 · 个人中心</text>
+    <rect x="760" y="220" width="186" height="34" rx="8" fill="#f3efff" stroke="#d8ccf2"/><text x="853" y="241" text-anchor="middle" fill="#5b5bd6">系统后台（按权限露出）</text>
   </g>
-  <text x="368" y="286" font-size="11" fill="#8a9099">菜谱 / 点单 / 账号管理无个人版；切域跳当前模块对应档</text>
+  <text x="368" y="286" font-size="11" fill="#8a9099">业务项按域收敛（家庭/个人）；菜谱/点单无个人版；系统后台仅超管逐页可见</text>
 
   <!-- C 端 -->
   <rect x="978" y="90" width="618" height="228" rx="10" fill="#ffffff" stroke="#d3adf7"/>
@@ -139,7 +177,7 @@
   <g font-size="10.5" fill="#374a3a">
     <rect x="352" y="458" width="198" height="152" rx="10" fill="#ffffff" stroke="#bfe8c8"/>
     <circle cx="370" cy="478" r="6" fill="#52c41a"/><text x="382" y="482" font-size="12" font-weight="700" fill="#237804">fh-common</text>
-    <text x="366" y="506">Result / PageResult</text><text x="366" y="524">错误码 / 三态枚举</text><text x="366" y="542">SessionToken 签发</text><text x="366" y="560">TransportCipher</text><text x="366" y="578">DataPartition</text>
+    <text x="366" y="506">Result / PageResult</text><text x="366" y="524">错误码 / 三态枚举</text><text x="366" y="542">SessionToken 签发</text><text x="366" y="560">TransportCipher</text><text x="366" y="578">DataPartition</text><text x="366" y="596">PermissionCatalog / RBAC</text>
 
     <rect x="560" y="458" width="198" height="152" rx="10" fill="#ffffff" stroke="#bfe8c8"/>
     <circle cx="578" cy="478" r="6" fill="#52c41a"/><text x="590" y="482" font-size="12" font-weight="700" fill="#237804">fh-module-album</text>
@@ -173,15 +211,20 @@
     <line x1="504" y1="736" x2="504" y2="928" stroke="#e3e9f5"/><line x1="656" y1="736" x2="656" y2="928" stroke="#e3e9f5"/><line x1="808" y1="736" x2="808" y2="928" stroke="#e3e9f5"/><line x1="960" y1="736" x2="960" y2="928" stroke="#e3e9f5"/>
     <text x="366" y="752" font-weight="700" fill="#1677ff">user</text>
     <text x="366" y="772">app_user</text>
-    <text x="366" y="794" fill="#8a9099">头像走 file_object</text>
+    <text x="366" y="790">role_permission</text>
+    <text x="366" y="812" fill="#8a9099">头像走 file_object</text>
     <text x="518" y="752" font-weight="700" fill="#1677ff">album</text>
     <text x="518" y="772">album_group</text><text x="518" y="790">album_image</text><text x="518" y="808">album_image_group_rel</text><text x="518" y="826">album_city</text>
     <text x="670" y="752" font-weight="700" fill="#1677ff">recipe</text>
     <text x="670" y="772">recipe</text><text x="670" y="790">recipe_category(_rel)</text><text x="670" y="808">recipe_practice_group</text><text x="670" y="826">recipe_practice_option</text><text x="670" y="844">recipe_practice_rel</text><text x="670" y="862">recipe_cart_item</text><text x="670" y="880">recipe_cart_state</text><text x="670" y="898">recipe_order</text><text x="670" y="916">recipe_order_item</text>
     <text x="822" y="752" font-weight="700" fill="#1677ff">file / video</text>
     <text x="822" y="772">file_object</text><text x="822" y="790">file_category</text><text x="822" y="808">file_group</text><text x="822" y="826">file_group_rel</text><text x="822" y="848" fill="#8a9099">视频不建表：</text><text x="822" y="864" fill="#8a9099">biz_type=video</text>
-    <text x="974" y="752" font-weight="700" fill="#1677ff">vault</text>
+    <text x="974" y="752" font-weight="700" fill="#1677ff">vault · system</text>
     <text x="974" y="772">vault_account</text>
+    <text x="974" y="790">operation_log</text>
+    <text x="974" y="808">operation_log_setting</text>
+    <text x="974" y="826">file_storage_directory</text>
+    <text x="974" y="848" fill="#8a9099">系统后台/运维表</text>
   </g>
 
   <rect x="1128" y="698" width="468" height="242" rx="10" fill="#ffffff" stroke="#d3adf7"/>
@@ -201,7 +244,7 @@
   </g>
 
   <rect x="352" y="952" width="1244" height="42" rx="10" fill="#ffffff" stroke="#c9d4ee"/>
-  <text x="372" y="978" font-size="11.5" fill="#576066">Flyway 迁移号段：album V2xx　recipe V3xx　file V1xx　user V5xx　video V6xx　·　版本号必须唯一，重命名表后 ADD COLUMN 先查旧迁移</text>
+  <text x="372" y="978" font-size="11.5" fill="#576066">Flyway 迁移号段：file V1xx　album V2xx　recipe V3xx　vault V4xx　user V5xx（head V506）　system V6xx（head V602）　·　版本号必须唯一，重命名表后 ADD COLUMN 先查旧迁移</text>
 
   <!-- 层间箭头 -->
   <line x1="657" y1="318" x2="657" y2="344" stroke="#7a86e8" stroke-width="2" marker-end="url(#arr)"/>

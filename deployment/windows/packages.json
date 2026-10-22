@@ -1,0 +1,85 @@
+{
+  "platform": "windows-x64",
+  "formatVersion": 3,
+  "offline": false,
+  "runMode": "source",
+  "git": {
+    "version": "2.47.1",
+    "file": "MinGit-2.47.1-64-bit.zip",
+    "directory": "",
+    "url": "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/MinGit-2.47.1-64-bit.zip",
+    "algorithm": "SHA256",
+    "hash": "50b04b55425b5c465d076cdb184f63a0cd0f86f6ec8bb4d5860114a713d2c29a"
+  },
+  "jdk": {
+    "version": "21.0.11",
+    "file": "zulu21.50.19-ca-jdk21.0.11-win_x64.zip",
+    "directory": "zulu21.50.19-ca-jdk21.0.11-win_x64",
+    "url": "https://cdn.azul.com/zulu/bin/zulu21.50.19-ca-jdk21.0.11-win_x64.zip",
+    "algorithm": "SHA256",
+    "hash": "84c73a4dcf8400ac01c1fe2d622cc319199e93c1856c200cb50c1bc16dc7dc97"
+  },
+  "node": {
+    "version": "22.23.3",
+    "file": "node-v22.23.3-win-x64.zip",
+    "directory": "node-v22.23.3-win-x64",
+    "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-win-x64.zip",
+    "algorithm": "SHA256",
+    "hash": "2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71"
+  },
+  "maven": {
+    "version": "3.9.9",
+    "file": "apache-maven-3.9.9-bin.zip",
+    "directory": "apache-maven-3.9.9",
+    "url": "https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip",
+    "algorithm": "SHA256",
+    "hash": "4ec3f26fb1a692473aea0235c300bd20f0f9fe741947c82c1234cefd76ac3a3c"
+  },
+  "pnpm": {
+    "version": "10.11.0",
+    "file": "pnpm-10.11.0.tgz",
+    "directory": "package",
+    "url": "https://registry.npmjs.org/pnpm/-/pnpm-10.11.0.tgz",
+    "algorithm": "SHA256",
+    "hash": "a69e9cb077da419d47d18f1dd52e207245b29cac6e076acedbeb8be3b1a67bd7"
+  },
+  "mysql": {
+    "version": "8.4.11",
+    "file": "mysql-8.4.11-winx64.zip",
+    "directory": "mysql-8.4.11-winx64",
+    "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11-winx64.zip",
+    "algorithm": "SHA256",
+    "hash": "a492371d687d2bab088b0062581144a0044b8964baefdf4faa579292b423d25c"
+  },
+  "vcredist": {
+    "file": "VC_redist.x64.exe",
+    "url": "https://download.visualstudio.microsoft.com/download/pr/990c720a-46ce-4dc7-87b9-c2eb615d34b9/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe",
+    "algorithm": "SHA256",
+    "hash": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b"
+  },
+  "repos": {
+    "server": {
+      "label": "后端 · family-home-server",
+      "url": "https://github.com/yanxing-mlp/MyHome.git",
+      "branch": "master",
+      "directory": "src/server"
+    },
+    "web": {
+      "label": "前端 · family-home-web",
+      "url": "https://github.com/yanxing-mlp/MyHome-React.git",
+      "branch": "master",
+      "directory": "src/web"
+    }
+  },
+  "ports": {
+    "db": 13306,
+    "backend": 8080,
+    "admin": 5173,
+    "h5": 5174
+  },
+  "transportSalt": {
+    "frontendEnv": "VITE_FH_TRANSPORT_CRYPTO_SALT",
+    "backendEnv": "FH_TRANSPORT_CRYPTO_SALT",
+    "backendProperty": "fh.transport-crypto.salt"
+  }
+}

@@ -1,447 +1,69 @@
-# MyHome 系统部署指南
+# MyHome 部署说明
 
-## 快速开始：一键部署
+## 交付形态：一个总包 · 三平台 · 联网源码直跑
 
-### 前置条件
+交付物是**一个总压缩包** `MyHome-OneClick.zip`，内部按平台分三个子目录，外加一份共享执行说明：
 
-- **操作系统**：macOS（推荐）或 Linux（Ubuntu/Debian/CentOS）
-- **网络**：能访问 GitHub、MySQL（本地或远程）
-- **权限**：需要 sudo 权限安装系统软件包
-
-### 一键部署步骤
-
-```bash
-# 1. 克隆知识库仓库
-git clone https://github.com/yanxing-mlp/MyHome--Knowledge.git
-cd MyHome-Knowledge
-
-# 2. 运行一键部署脚本
-bash deployment/one-click-deploy.sh
+```text
+MyHome-OneClick/
+├── 执行说明.md            # 三平台共享（含平台差异表），LF 无 BOM
+├── windows-x64/           # Windows 10/11 Intel/AMD x64
+├── macos-arm64/           # macOS Apple Silicon（arm64）
+└── linux-x64/             # Ubuntu/Debian x86_64
 ```
 
-脚本会自动完成以下操作：
+每个平台子目录都自带：入口脚本、引擎脚本、`packages.json`（工具链清单 + 仓库地址 + 端口 + 传输盐）、本平台编码的 `执行说明.md`，以及 `runtime/`（哈希校验过的完整工具链）。
 
-1. **检测操作系统与包管理器**（Homebrew / apt-get / yum）
-2. **安装 JDK 21**（Spring Boot 3.5 必需）
-3. **安装 Maven 3.9+**（后端构建工具）
-4. **安装 Node.js 22+ 与 pnpm**（前端构建环境）
-5. **安装 MySQL 8.0**（可选，也可连接远程数据库）
-6. **克隆代码仓库**（family-home-server + family-home-web）
-7. **配置数据库连接**（生成本地数据库或填写远程连接信息）
-8. **构建并启动后端**（Spring Boot + Flyway 自动建表）
-9. **配置前端环境变量**（传输加密盐、Vault 密钥）
-10. **安装依赖并启动前端**（B 端管理后台 + C 端 H5）
+**模型：联网 · 源码直跑。** 工具链（JDK 21、Node 22、Maven、pnpm、MySQL 8.4，Windows 另含 Git 与 VC++）随包提供并逐个核对 SHA-256；应用源码**不**随包携带，部署时按 `packages.json` 里的 GitHub 地址联网克隆，后端 `mvn spring-boot:run`、前端 `pnpm dev` 直接跑源码。首次部署和「部署最新」都需要联网；日常启停可离线。数据库迁移由后端启动时的 Flyway 从源码自动执行，不手工导入 SQL。
 
-### 部署模式
+> 旧的「离线预编译总包」（586 MB，内含 `payload/app.zip`、`sql/`、apt/`.deb` 运行环境）以及配套的 `unix-deploy.py` / `one-click-deploy.sh` / `restart.sh` / `offline-env.sh` 已全部退役删除，不要混用。
 
-```bash
-# 完整部署（后端 + 前后端）
-bash deployment/one-click-deploy.sh
+## 三平台入口与引擎
 
-# 只部署后端
-bash deployment/one-click-deploy.sh --backend-only
+| 平台 | 入口脚本 | 引擎 | 默认安装目录 |
+|---|---|---|---|
+| windows-x64 | `01-deploy.cmd` / `02-start.cmd` / `03-stop.cmd` / `04-update.cmd` | `myhome-windows.ps1`（PowerShell 5.1） | `%LOCALAPPDATA%\MyHome` |
+| macos-arm64 | `01-deploy.sh` / `02-start.sh` / `03-stop.sh` / `04-update.sh` | `myhome-unix.sh`（bash） | `~/Library/Application Support/MyHome` |
+| linux-x64 | 同上（`.sh`） | `myhome-unix.sh`（bash） | `~/.local/share/MyHome` |
 
-# 只部署前端（需确保后端已运行）
-bash deployment/one-click-deploy.sh --frontend-only
-```
+`myhome-unix.sh` 是 macOS 与 Linux 共用的同一份引擎，靠 `uname -s` 分流（Darwin→期望 arm64，Linux→期望 x86_64），两平台子目录里是同一字节内容。四个 `.sh` 入口只是 `cd` 到自身目录后 `exec bash myhome-unix.sh --action <deploy|start|stop|update> "$@"`；`deploy-now.sh` 供后端「部署最新」按钮分离拉起（setsid→perl→nohup，因 macOS 无 setsid）。
 
----
+Git 是唯一不内置的工具（无官方独立 unix git 二进制）：引擎检测系统 `git`，缺失时按平台给出安装指引（macOS `xcode-select --install`，Linux `sudo apt-get install -y git`）。Windows 包内附 MinGit。
 
-## 日常运维：重启与更新
+安装目录可用 `--install-dir DIR`（或环境变量 `MYHOME_INSTALL_DIR`）覆盖；启停、部署最新必须始终用同一目录、同一账号。运行目录布局：`src/{server,web}`、`data/{mysql,files,files-private}`、`state`、`tools`、`logs`。
 
-完成首次部署后，日常开发中需要拉取最新代码并重启服务，使用专用脚本更快捷。
+## 密钥与数据
 
-### 重启脚本用法
+- Windows：`state` 内数据库口令、密码本密钥、登录密钥、传输盐用 **DPAPI** 保护（绑定原电脑 + 原 Windows 账号）。
+- macOS / Linux：无 DPAPI，改用 `0600` 的 `secrets.env` + `0700` 的 `state` 目录权限保护。
 
-```bash
-# 完整重启（拉取代码 + 重新构建 + 启动）
-bash deployment/restart.sh
+三平台都只监听 loopback（后端 8080、私有 MySQL 13306、管理后台 5173 `/admin/`、C 端 5174 `/`），只支持本机访问；不改防火墙、全局环境变量/执行策略或电源设置，不建开机任务。手机、局域网、公网、HTTPS 不在范围内。
 
-# 只重启后端
-bash deployment/restart.sh --backend-only
+必须同时保留 `data`（含私有 MySQL）与整个 `state`。备份前先正常停止应用与数据库。复制目录不等于支持换机恢复（密钥绑定原机/原账号）。
 
-# 只重启前端
-bash deployment/restart.sh --frontend-only
+## 初始化口径（三平台一致）
 
-# 跳过 git pull（本地调试用）
-bash restart.sh --skip-pull
+只初始化，不导入测试业务数据：保留大宝/小宝两个账号（初始密码均 `123456`，登录后各自到个人中心修改）、文件分类、菜品分类/做法基础字典、购物车版本状态与迁移历史；相册、图片、视频、文档、菜品、购物车条目、订单、密码本从空开始。重复部署不删已有业务内容、不重置账号密码。不改历史 SQL、不导入旧 `schema.sql`、不伪造 history/baseline、不执行 repair、不跑演示造数脚本。
 
-# 跳过构建（仅重启，适合配置未变时）
-bash restart.sh --skip-build
-```
+## 打包
 
-### 重启流程
+- **`offline-deploy-build/package-master.py`** —— 生成三平台总包 `MyHome-OneClick.zip`（当前交付物）。逐平台校验 `packages.json`（formatVersion=3 / offline=false / runMode=source / platform 匹配）与每个工具链归档的 SHA-256，再按平台编码规则暂存、组装、压缩。**不修改任何源文件**，归一化只发生在暂存副本上。
+- `offline-deploy-build/package-oneclick.py` —— 旧的 Windows 单平台打包器（产出 `MyHome-Windows-OneClick-x64.zip`），保留作参考；它会就地改写源文件的 BOM/CRLF，总包一律用 `package-master.py`。
 
-脚本会自动执行以下步骤：
+编码规则：Windows `.ps1`/`使用说明.txt`/`执行说明.md` = UTF-8 BOM + CRLF；Windows `.cmd` = CRLF 无 BOM（cmd.exe 遇 BOM 会报错）；`packages.json` = 原字节无 BOM；Unix `.sh`/`执行说明.md`/`packages.json` = LF 无 BOM，`.sh` 带可执行位；`runtime/*` 归档 = ZIP_STORED（本身已压缩，不再二次压缩）。
 
-1. **停止正在运行的服务**：通过 PID 文件或端口查找，优雅停止所有进程
-2. **拉取最新代码**：检测远程新提交并更新本地仓库（可跳过）
-3. **检查依赖**：如果 `package.json` 有变化，自动执行 `pnpm install`
-4. **重新构建**：清理旧产物并编译打包（可跳过）
-5. **启动服务**：后台启动后端和前端，记录 PID 和日志
-6. **等待就绪**：轮询健康检查接口，确认服务可用
+工具链归档分别存放在工作区根的 `windows-deploy-checks/`、`macos-deploy-checks/`、`linux-deploy-checks/`，由 `package-master.py` 读取核对。
 
-### 日志管理
+## 失败排查
 
-每次重启会自动轮转日志文件，保留最近 7 天的历史：
+失败时窗口会显示具体步骤、原因、退出码与日志路径。默认日志目录为安装目录下 `logs/`：首次部署看 `Deploy.log`，启动看 `Start.log`，停止看 `Stop.log`，部署最新看 `Update.log`；服务相关为 `server.log`、`backend.err.log`、`mysql-error.log`、`web-admin.err.log`、`web-h5.err.log` 等。日志创建前的失败以窗口原始错误为准。
 
-```bash
-# 查看当前日志
-tail -f /tmp/family-home-backend.log
-tail -f /tmp/family-home-admin.log
-tail -f /tmp/family-home-h5.log
+缺工具链文件或哈希不符→重新完整复制同版本包；联网失败→确认 GitHub / Maven Central / npm registry 可达后重试；端口冲突→只处理已确认属于自己的程序。不删 `data`/`state`/密钥文件，不清库、不重置 root 认证、不关系统防护来重试。分享日志前检查隐私，不发送 `state`、`secrets.xml`（Windows）、`secrets.env`（Unix）、`mysql-client.ini`/`mysql-client.cnf`、`mysql-init.sql`、`config.json`。
 
-# 查看历史日志（按时间戳命名）
-ls -lh /tmp/family-home-*.log.*
-```
+完整命令、成功判据（脚本返回码 + 健康检查 + 浏览器）与平台差异表见 [执行说明.md](执行说明.md)。
 
-### 常见场景
+## 验证边界
 
-| 场景 | 命令 |
-|------|------|
-| 早上开始工作，拉取最新代码重启 | `bash restart.sh` |
-| 改了后端代码，只重启后端 | `bash restart.sh --backend-only --skip-pull` |
-| 改了前端样式，只重启前端 | `bash restart.sh --frontend-only --skip-pull` |
-| 配置未变，快速重启 | `bash restart.sh --skip-build` |
-| 排查问题，查看版本信息 | 重启完成后会输出两端 commit hash |
+制作环境为 macOS（Apple Silicon）。`myhome-unix.sh` 引擎已在真机 macOS arm64 上功能验证：五件工具链解包 + 探针 + 版本、幂等重装、密钥与传输盐、`runtime.env` 往返、完整 MySQL 生命周期（initialize-insecure → init-file 建库建用户 → SELECT → mysqladmin shutdown → 重启后数据仍在）。总包已通过静态校验：43 个成员集合、全成员 CRC、每个工具链归档 SHA-256 与清单一致、各平台文本编码与可执行位、`runtime/` 为 STORED。
 
-### 访问地址
-
-部署完成后，可访问以下地址：
-
-- **后端健康检查**：http://localhost:8080/health
-- **B 端管理后台**：http://localhost:5173/admin/
-- **C 端 H5**：http://localhost:5174/
-
-### 初始账号
-
-系统会自动创建两个初始账号：
-
-| 昵称 | 角色 | 手机号 | 密码 | 说明 |
-|------|------|--------|------|------|
-| 大宝 | ADMIN | 13800138000 | 123456 | 管理员，可管理所有模块 |
-| 小宝 | MEMBER | 13800138001 | 123456 | 普通成员，可使用 C 端功能 |
-
-### 日志位置
-
-```bash
-# 后端日志
-tail -f /tmp/family-home-backend.log
-
-# B 端管理后台日志
-tail -f /tmp/family-home-admin.log
-
-# C 端 H5 日志
-tail -f /tmp/family-home-h5.log
-```
-
-### 停止服务
-
-```bash
-# 停止后端
-kill $(cat /tmp/family-home-backend.pid)
-
-# 停止 B 端
-kill $(cat /tmp/family-home-admin.pid)
-
-# 停止 C 端
-kill $(cat /tmp/family-home-h5.pid)
-```
-
----
-
-## 手动部署（高级用户）
-
-如果一键部署脚本不适用你的环境，可以按以下步骤手动部署。
-
-### 1. 安装开发环境
-
-#### macOS（使用 Homebrew）
-
-```bash
-# 安装 JDK 21
-brew install openjdk@21
-export JAVA_HOME="/opt/homebrew/opt/openjdk@21"
-export PATH="$JAVA_HOME/bin:$PATH"
-
-# 安装 Maven
-brew install maven
-
-# 安装 Node.js 22
-brew install node@22
-
-# 安装 pnpm
-npm install -g pnpm
-
-# 安装 MySQL 8.0（可选）
-brew install mysql@8.0
-brew services start mysql@8.0
-```
-
-#### Linux（Ubuntu/Debian）
-
-```bash
-# 安装 JDK 21
-sudo apt-get update
-sudo apt-get install -y openjdk-21-jdk
-export JAVA_HOME="/usr/lib/jvm/java-21-openjdk"
-export PATH="$JAVA_HOME/bin:$PATH"
-
-# 安装 Maven
-sudo apt-get install -y maven
-
-# 安装 Node.js 22
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# 安装 pnpm
-npm install -g pnpm
-
-# 安装 MySQL 8.0（可选）
-sudo apt-get install -y mysql-server
-sudo systemctl start mysql
-sudo systemctl enable mysql
-```
-
-### 2. 准备数据库
-
-```sql
--- 创建数据库
-CREATE DATABASE IF NOT EXISTS `family_home` 
-  DEFAULT CHARACTER SET utf8mb4 
-  COLLATE utf8mb4_0900_ai_ci;
-
--- 创建用户（可选，生产环境建议单独建用户）
-CREATE USER 'family_home'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON `family_home`.* TO 'family_home'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-### 3. 克隆代码
-
-```bash
-# 后端
-git clone https://github.com/yanxing-mlp/MyHome.git family-home-server
-
-# 前端
-git clone https://github.com/yanxing-mlp/MyHome-Web.git family-home-web
-```
-
-### 4. 配置后端
-
-编辑 `family-home-server/fh-boot/src/main/resources/application-dev.yml`：
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/family_home?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: ""  # 改为你的数据库密码
-
-fh:
-  storage:
-    root: /data/family-home/files  # 文件存储根目录
-    url-prefix: /files
-  
-  vault:
-    password-key: "YOUR_BASE64_32_BYTES_KEY"  # openssl rand -base64 32
-  
-  transport-crypto:
-    salt: "YOUR_HEX_16_BYTES_SALT"  # openssl rand -hex 16
-```
-
-生成密钥：
-
-```bash
-# Vault 密钥（AES-256-GCM）
-openssl rand -base64 32
-
-# 传输加密盐（前后端必须一致）
-openssl rand -hex 16
-```
-
-### 5. 构建并启动后端
-
-```bash
-cd family-home-server
-
-# 编译打包
-mvn clean package -DskipTests
-
-# 创建文件存储目录
-sudo mkdir -p /data/family-home/files
-sudo chmod 777 /data/family-home/files
-
-# 启动后端
-java -jar fh-boot/target/fh-boot-1.0.0-SNAPSHOT.jar \
-  --spring.profiles.active=dev
-```
-
-后端将在 http://localhost:8080 启动，Flyway 会自动执行所有迁移脚本建表。
-
-### 6. 配置前端
-
-创建 `family-home-web/packages/admin/.env.local`：
-
-```env
-VITE_FH_TRANSPORT_CRYPTO_SALT=YOUR_HEX_16_BYTES_SALT
-```
-
-创建 `family-home-web/packages/h5/.env.local`：
-
-```env
-VITE_FH_TRANSPORT_CRYPTO_SALT=YOUR_HEX_16_BYTES_SALT
-```
-
-**注意**：这里的盐必须与后端 `application-dev.yml` 中的 `transport-crypto.salt` 完全一致。
-
-### 7. 安装依赖并启动前端
-
-```bash
-cd family-home-web
-
-# 安装依赖
-pnpm install
-
-# 启动 B 端管理后台（新终端窗口）
-pnpm dev:admin
-
-# 启动 C 端 H5（新终端窗口）
-pnpm dev:h5
-```
-
-前端将分别在：
-- B 端：http://localhost:5173/admin/
-- C 端：http://localhost:5174/
-
----
-
-## 常见问题
-
-### 1. 后端启动失败：Flyway 迁移版本号冲突
-
-**症状**：
-```
-Found more than one migration with version 201
-```
-
-**原因**：多个域使用了相同的 Flyway 版本号。
-
-**解决**：确保每个域的迁移文件版本号全局唯一：
-- file 域：V1xx
-- album 域：V2xx
-- recipe 域：V3xx
-- vault 域：V4xx
-- user 域：V5xx
-
-### 2. 前端登录报错："口令无法解密"
-
-**原因**：前后端的传输加密盐不一致。
-
-**解决**：检查以下两处配置是否完全一致：
-- 后端：`fh-boot/src/main/resources/application-dev.yml` 中的 `transport-crypto.salt`
-- 前端：`packages/admin/.env.local` 和 `packages/h5/.env.local` 中的 `VITE_FH_TRANSPORT_CRYPTO_SALT`
-
-### 3. 图片上传失败：413 Request Entity Too Large
-
-**原因**：nginx 或 Spring Boot 限制了上传文件大小。
-
-**解决**：
-- Spring Boot：检查 `application.yml` 中的 `spring.servlet.multipart.max-file-size`（默认 500MB）
-- nginx：在 server 块中添加 `client_max_body_size 500m;`
-
-### 4. 视频无法播放：HTTP Range 不支持
-
-**原因**：静态资源映射未使用 `FileSystemResource`。
-
-**解决**：确保视频播放接口返回的是 `FileSystemResource` 而非 `InputStreamResource`，前者支持 HTTP Range/206 分片请求。
-
-### 5. 数据库连接失败：Access denied
-
-**原因**：数据库用户名/密码错误，或用户没有权限。
-
-**解决**：
-```sql
--- 检查用户权限
-SHOW GRANTS FOR 'family_home'@'localhost';
-
--- 重新授权
-GRANT ALL PRIVILEGES ON `family_home`.* TO 'family_home'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-### 6. 端口被占用
-
-**症状**：
-```
-Port 8080 was already in use
-```
-
-**解决**：修改配置文件中的端口，或杀掉占用进程：
-```bash
-# macOS
-lsof -ti:8080 | xargs kill -9
-
-# Linux
-sudo fuser -k 8080/tcp
-```
-
----
-
-## 生产环境部署建议
-
-### 1. 安全加固
-
-- **启用 HTTPS**：使用 Let's Encrypt 免费证书，或在阿里云/腾讯云申请 SSL 证书
-- **修改默认密码**：首次登录后立即修改初始账号密码
-- **限制管理员可见性**：ADMIN 账号不应暴露给所有用户
-- **关闭 dev-seed**：生产环境不要启用数据种子，避免脏数据
-
-### 2. 性能优化
-
-- **数据库连接池**：调整 HikariCP 参数（`spring.datasource.hikari.maximum-pool-size`）
-- **文件存储**：考虑使用 OSS/S3 替代本地文件系统
-- **CDN 加速**：静态资源（图片、视频）走 CDN
-- **缓存策略**：Redis 缓存热点数据（菜谱列表、相册封面）
-
-### 3. 监控与告警
-
-- **应用监控**：接入 Sunfire/Prometheus/Grafana
-- **日志收集**：ELK/SLS 集中管理日志
-- **健康检查**：定期探测 `/health` 接口
-- **备份策略**：每日全量备份数据库，保留 7 天
-
-### 4. 高可用架构
-
-```
-                    ┌─────────────┐
-                    │   SLB/Nginx  │
-                    └──────┬──────┘
-                           │
-              ┌────────────┼────────────┐
-              │            │            │
-      ┌───────▼───┐ ┌─────▼────┐ ┌────▼──────┐
-      │ App Node 1│ │App Node 2│ │App Node 3 │
-      └───────┬───┘ └─────┬────┘ └────┬──────┘
-              │            │            │
-              └────────────┼────────────┘
-                           │
-                  ┌────────▼────────┐
-                  │  MySQL 主从集群   │
-                  └─────────────────┘
-```
-
----
-
-## 技术支持
-
-如有问题，请查阅：
-
-- [系统架构文档](../architecture/system-overview.md)
-- [开发规范](../development-standards/coding-conventions.md)
-- [项目决策记录](../memories/project-decisions/README.md)
-- [用户反馈汇总](../memories/feedback/README.md)
-
-或在 GitHub Issues 中提问：
-- [family-home-server Issues](https://github.com/yanxing-mlp/MyHome/issues)
-- [family-home-web Issues](https://github.com/yanxing-mlp/MyHome-Web/issues)
+**尚未完成**：完整 git clone → `mvn spring-boot:run` → `pnpm dev` 链路、Linux x64 真机、Windows 真机（PowerShell 5.1 / UAC / DPAPI / NTFS / MySQL 8.4）的原生全流程验收。macOS 隔离回归不能证明 Linux 的 apt/systemd 与 Windows 原生执行可用。本版不能标为已完成三平台原生全流程验收。

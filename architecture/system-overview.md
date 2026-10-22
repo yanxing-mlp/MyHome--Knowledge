@@ -62,12 +62,46 @@
 - **可见性说明** (v30): 整句版只在 C 端登录页 (域概念第一次被遇到的那一屏讲透一次), 短版「家庭全家可见 · 个人仅自己可见」用在两端切域处; C 端抽成常量 `DOMAIN_VISIBILITY_HINT` 两处共用
 - **域无关模块**: 首页/菜谱/点单/账号管理无个人版; 菜谱是家庭共享, 只在家庭域出现
 
+### 6. 三档固定角色 RBAC (v48~v51)
+- **三档角色**: `UserRole = SUPER_ADMIN | ADMIN | MEMBER`, 固定枚举不可增删; 可配置的只有「每档勾选了哪些权限」
+- **权限目录**: `PermissionCatalog` (fh-common) 写死 23 码——6 个业务模块各 `.view`/`.manage` 两档 (12 码) + 11 个系统后台页各一个 `.access` (11 码); 权限项与角色都不让超管在页面上增删 (否则成了"自己给自己造钥匙")
+- **勾选矩阵**: 存 `role_permission` 表 (V506, role+permission 联合主键), 超管在「角色管理」页编辑; SUPER_ADMIN 不入库, 在 `can(user, code)`/`resolve` 里短路拥有全部权限
+- **后端门禁分工 (关键)**: 写操作 (建/改/删) 逐个 `requirePermission(<mod>.manage)`, 系统后台页逐个 `requirePermission(<page>.access)`; **业务读接口只要登录态、不由 `.view` 在后端拦** (`.view` 只驱动前端菜单可见性与路由 403, 这是"普通成员只读浏览业务数据"要的)
+- **`requireSuperAdmin()` 单独守两条**: 改角色 (`PUT /user/{id}/role`) 与存矩阵 (`PUT /role/permissions`)——它不在权限矩阵里、无法被授予 (超管身份是硬编码短路), 故普通管理员即便被勾上 `ROLE_ACCESS` 也改不了角色
+- **单超管不变式 (v50)**: 全系统只能有一个超级管理员——禁止提第二人、超管那一行不可改角色/不可删、不能改自己角色; 角色下拉里「超级管理员」永久置灰; 账号删除只挡超管 (普通管理员/普通成员都可删, 放宽 v48 旧护栏)
+- **前端判据唯一来源**: `@family-home/shared/auth` 的 `can(user, code)`; 任何 `role === 'ADMIN'` 的写法对超管 (role=SUPER_ADMIN) 都会假, 故一律用 `can()` 而非直接比 role
+
+## 系统后台 (运维/治理面, 仅 B 端)
+
+v39 起在 B 端 ADMIN+家庭域侧栏逐步长出一组「系统后台」页 (v47 归组), 每页一个 `<page>.access` 权限码, 默认只有超级管理员勾选, 逐个接口 `requirePermission` 兜底 (藏菜单只是体验, 敲接口照样 403)。这些页的服务实现大多落在 **fh-boot** (不新建业务模块), 共 11 项:
+
+| 页面 | 路由 | 权限码 | 版本 | 职责 |
+|------|------|--------|------|------|
+| 账号管理 | `/user` | `user.access` | v6/v48/v50 | 账号增删改 + 设角色 (仅超管可改, 单超管不变式) |
+| 角色管理 | `/role` | `role.access` | v48 | 23 码 × 3 档可编辑权限勾选矩阵 (仅超管可存) |
+| 目录管理 | `/storage` | `storage.access` | v36~v38 | 多目录存储登记 + 默认上传切换 + 目录占用统计 |
+| 变更记录 | `/change-log` | `changelog.access` | v39/v40 | 两仓 commit 全量 (GitHub API 实时优先 + 构建期快照兜底), 标「当前运行版本」 |
+| 部署管理 | `/deploy` | `deploy.access` | v41/v42 | 「部署最新」(分离 launcher 拉起 + 进度文件跨重启接续) + 部署历史 |
+| 系统日志 | `/logs` | `logs.access` | v43/v44/v46 | 多文件切换 + 实时 tail (~1.5s 轮询增量) + 保留天数驱动 logback + traceId 过滤回溯 |
+| 操作记录 | `/operation-logs` | `oplog.access` | v45/v46 | 读写全审计 + B/C 端区分 + 页面头/动作字典 + 出入参脱敏 + 保留天数 + traceId |
+| 知识库 | `/knowledge` | `knowledge.access` | v49 | 在线浏览/编辑 MyHome--Knowledge 仓库文本文件 + 一键 git push |
+| 后端代码 | `/server-repo` | `server-repo.access` | v51 | 在线浏览/编辑 family-home-server 源码 + 一键 git push |
+| 前端代码 | `/web-repo` | `web-repo.access` | v51 | 在线浏览/编辑 family-home-web 源码 + 一键 git push |
+| 数据库 | `/database` | `database.access` | v52~v56 | 可视化表数据 CRUD + 结构化改表 (含表说明) + 只读索引清单 + 任意 SQL + 每日备份 |
+
+**几条共性口径**:
+- **在线编辑三页 (知识库/后端代码/前端代码) 共用 `RepoService` 引擎** (v51 把 v49 的知识库机制泛化): 浏览目录树 + 编辑文本白名单文件 + 本地保存 + 一键 `git add/commit/push`; 推送是**进程内同步跑** (不杀后端, 与部署的分离 launcher 本质不同); 仓库根目录靠 env 配 (`FH_KNOWLEDGE_REPO_DIR`/`FH_SERVER_REPO_DIR`/`FH_WEB_REPO_DIR`), 未配置则优雅降级 `available:false`
+- **部署必须分离 launcher**: 「部署最新」的后端正是要被 `taskkill` 重启的那个, 故后端只「分离拉起 `FH_DEPLOY_LAUNCHER` + 读 `FH_DEPLOY_PROGRESS_FILE`」, 进度靠文件跨重启接续 (新后端读同一文件、前端轮询无缝续)
+- **审计 traceId 一值三处同值** (v46): 每行日志的 `[traceId]` 段 + `operation_log.trace_id` 列 + 响应头 `X-Trace-Id` 逐字相同; `TraceIdFilter` (最高优先级) 用 MDC + request attribute 双写, 审计异步落库从 request attribute 取 (MDC 不跨线程); 系统日志页按 traceId 客户端过滤做回溯 (v43「极简无过滤器」的唯一定向例外)
+- **数据库页是全系统权限最高页** (v52): 能跑任意 SQL (读+写+DDL, 无语句白名单, 风险由前端二次确认 + 仅超管门禁兜)、能改表结构、能删数据; 标识符逐个 `^[A-Za-z0-9_]+$` 校验 + 反引号包裹, 值一律 `PreparedStatement` 占位符; 备份走 `mysqldump` 到 `<install>/backups/`, 凭据写进用完即删的 0600 临时选项文件
+- **系统后台新增数据表**: `role_permission` (V506, 权限矩阵)、`operation_log` + `operation_log_setting` (V600, 审计流水 + 保留天数)、`file_storage_directory` (V110, 多目录存储登记); `operation_log.trace_id` 由 V601 补列; V602 批量补齐历史遗留的空列注释 (含 8 个 STORED 生成列), Flyway head 现为 system 域 `V602` / user 域 `V506`
+
 ## 模块边界
 
 | 模块 | Maven artifactId | 职责 |
 |------|------------------|------|
-| fh-common | fh-common | Result/PageResult/异常/错误码/三态枚举/SessionToken/TransportCipher |
-| fh-boot | fh-boot | 启动类/配置/静态映射/异常处理/health |
+| fh-common | fh-common | Result/PageResult/异常/错误码/三态枚举/SessionToken/TransportCipher/UserRole/PermissionCatalog/CurrentUserHolder |
+| fh-boot | fh-boot | 启动类/配置/静态映射/异常处理/health + 系统后台服务 (ChangeLog/Deploy/Log/OperationLog/TraceIdFilter/Repo·Knowledge·CodeRepo/Database) |
 | fh-module-album | fh-module-album-biz | 相册分组/图片/城市分布/上下架 |
 | fh-module-recipe | fh-module-recipe-biz | 菜谱/分类/做法/购物车/订单 |
 | fh-module-file | fh-module-file-biz | 文件上传/下载/分类/文档/视频 |
@@ -82,6 +116,7 @@
 4. **关联表驱动**: album_image_group_rel 是分组归属唯一来源; file_group_rel 同理管文档/视频分组 (V108/V109)
 5. **软删 + 物理删**: markDeletedAndPurge (先软删行, 后物理删文件); 分组类字典 (file_category/file_group) 是硬删
 6. **保留原件**: 前端不压缩画质 (`prepareImageForUpload` 白名单原图直传, 仅 HEIC 转全尺寸 JPEG); 后端另存独立 480px 显示缩略图, 视频从不转码
+7. **三档角色 RBAC + 系统后台**: 23 权限码 × 3 档勾选矩阵 (`role_permission`/V506), 超管短路全有; 11 个系统后台页 (账号/角色/目录/变更记录/部署/日志/操作记录/知识库/后端代码/前端代码/数据库) 逐页 `.access` 门禁, 详见上「系统后台」节
 
 ## C 端能力边界 (与 B 端逐档对比)
 
@@ -126,4 +161,4 @@
 
 ---
 
-*最后更新: 2026-10-13*
+*最后更新: 2026-10-22*

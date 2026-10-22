@@ -1,0 +1,109 @@
+﻿MyHome Windows 一键部署包（联网 · 源码直跑，Windows 10/11 x64）
+
+本包已包含部署脚本和所需运行环境（Git、JDK 21、Node 22、Maven、pnpm、MySQL 8.4、VC++）。
+应用源码在部署时从 GitHub 拉取，后端用 mvn spring-boot:run、前端用 pnpm dev 直接跑源码，
+不再预编译 JAR 或静态页面。首次部署和「部署最新」都需要联网：源码走 GitHub，
+后端依赖走 Maven Central，前端依赖走 npm registry。部署完成后日常启停可离线。
+
+一、电脑要求
+1. Windows 10/11，Intel/AMD 64 位电脑；不支持 ARM、Windows 7 或 32 位系统。
+2. 建议至少 8GB 内存、8GB 可用磁盘，照片/视频另计；使用本地 NTFS 磁盘。
+3. 接通电源，部署过程中不要合盖睡眠；首次部署和「部署最新」必须联网。
+4. 使用平时登录 Windows 的账号；仅安装微软 VC++ 运行库时可能弹出管理员确认。
+   不要换另一个 Windows 账号运行整个部署脚本。
+
+二、第一次部署
+1. 将 MyHome-Windows-OneClick-x64.zip 完整复制到目标电脑并“全部解压”。
+   不要在压缩包窗口内运行，不要只复制 .cmd/.ps1。
+2. 双击 01-deploy.cmd。
+3. 如弹出 VC++ 安装确认，核对发布者为 Microsoft 后允许安装。
+   如果要求重启电脑，重启后再双击 01-deploy.cmd。
+4. 等待本地文件校验、环境解压、联网拉取源码、下载依赖、编译启动、建库完成。
+   首次运行要现下 Maven 与 npm 依赖并编译，可能需要十几分钟，属正常现象。
+5. 看到 Ready 后打开 http://localhost:5174/；关闭已完成的脚本窗口不影响后台运行。
+
+包内内容：
+  01-deploy.cmd / 02-start.cmd / 03-stop.cmd / 04-update.cmd  部署、启动、停止、部署最新入口
+  myhome-windows.ps1                         一键部署核心
+  packages.json                              版本、仓库地址及 SHA-256 完整性清单
+  runtime/                                   Git、JDK 21、Node 22、Maven、pnpm、MySQL 8.4、VC++ 安装包
+
+脚本逐个核对包内工具链文件哈希；缺文件或损坏会停止并指出原因。源码不随包携带，
+部署时按 packages.json 里的 GitHub 地址联网克隆到安装目录的 src\server 与 src\web。
+数据库口令、登录令牌密钥、密码本密钥、传输盐都每次首次安装独立生成并持久化，不附带开发机密钥。
+
+三、初始化和登录
+数据库只做初始化，不导入测试业务数据：
+- 保留“大宝、小宝”两个初始账号，以及文件分类、菜品分类/做法基础字典、购物车版本状态。
+- 相册、图片、视频、文档、菜品、购物车条目、订单和密码本内容从空开始。
+- 不运行演示造数脚本，不导入开发机数据库或媒体；重复部署不删除已有内容，不重置密码。
+- 数据库迁移由后端启动时的 Flyway 从 src\server 源码里的迁移脚本自动执行；
+  请不要手工逐个导入 SQL，不要删除 Flyway 历史或执行清库脚本。
+
+C 端：http://localhost:5174/
+管理后台：http://localhost:5173/admin/
+首次空库选择大宝（管理员）或小宝，初始密码均为 123456。
+请分别登录管理后台个人中心修改自己的密码；管理员不能替别人重置密码。
+只允许当前电脑访问，手机、其他电脑和公网访问不包含在本包中；不要改用局域网 IP。
+
+四、日常启停与部署最新
+Windows 重启后：双击 02-start.cmd；服务已运行时此入口也可重启应用（离线可用）。
+准备停止或备份：结束上传/编辑后双击 03-stop.cmd，等显示 Stopped。
+拉取并部署最新代码：双击 04-update.cmd（需联网）。它对两个源码仓库执行 git pull，
+  随后重启后端与前端；后端重启时 Flyway 会自动应用新增迁移。
+  更新期间会有几秒服务中断，前后端都重启完成后才恢复访问。
+不需要每天运行 01-deploy.cmd；它用于首次安装，重复运行会联网把源码更新到最新再启动。
+保留整个解压目录，后续还要使用脚本。
+不安装开机自启、不修改防火墙、全局执行策略或电脑睡眠设置。
+
+五、数据与备份
+默认安装位置：%LOCALAPPDATA%\MyHome
+  src\server          后端源码（git 克隆，可随时 git pull 更新）
+  src\web             前端源码（git 克隆，可随时 git pull 更新）
+  data\mysql          私有数据库（端口 13306）
+  data\files          公共图片、视频和文档
+  data\files-private  私人图片、视频和文档
+  state               DPAPI 保护的密钥、运行环境、源码版本与进程记录
+  tools               私有运行环境（Git/JDK/Node/Maven/pnpm/MySQL）
+  logs                操作及服务日志
+
+数据库、整个 data 和 state 必须一起保留；不要删除 secrets.xml 或重新生成密钥。
+DPAPI 绑定原 Windows 账号和原电脑，复制目录不等于支持换机/重装后的恢复。
+本包未提供跨机密钥导出。重要数据请安排独立备份；同机备份也应先停止应用和数据库。
+不要向正在运行的目录覆盖备份。
+
+六、失败处理
+窗口会显示失败步骤、具体原因、可用退出码/脚本行号和相关日志；等待按键后才关闭。
+1. 包内工具链文件缺失或校验失败：重新完整复制、解压同一个一键部署包，不要下载同名文件混用。
+2. 联网失败（拉源码/下依赖）：检查网络后重试 01-deploy.cmd 或 04-update.cmd；GitHub、
+   Maven Central、npm registry 都需可达。日常 02-start.cmd/03-stop.cmd 不需要联网。
+3. 端口占用：管理端 5173、C 端 5174、后端 8080、私有 MySQL 13306。只退出你确认的冲突程序；
+   脚本不杀未知进程。
+4. 目录不为空或检测到旧版离线安装：不接管旧安装，不把新包覆盖到旧数据上；请先备份并规划迁移。
+5. 无法解密：用原电脑、原 Windows 账号和原安装路径；不要删除 state 重试。
+6. MySQL/迁移错误：保留原日志，不清库、不删 Flyway 历史、不导旧 schema.sql。
+7. 安全策略或防护拦截：不要关闭防护，请由管理员核对本包与具体错误。
+
+操作记录：logs\Deploy.log、logs\Start.log、logs\Stop.log、logs\Update.log。
+服务日志：logs\mysql-error.log、logs\backend.err.log、logs\server.log、
+  logs\web-admin.err.log、logs\web-h5.err.log。
+失败发生在创建日志之前时，以窗口里的原始错误为准。
+操作日志会脱敏常见密码/令牌，服务原日志和个人信息仍需人工检查；
+不要发送 state、secrets.xml、mysql-client.ini、mysql-init.sql。
+
+七、自定义安装目录
+在部署包目录打开命令提示符：
+  01-deploy.cmd -InstallDir "D:\MyHome"
+以后必须继续使用同一目录：
+  02-start.cmd -InstallDir "D:\MyHome"
+  03-stop.cmd -InstallDir "D:\MyHome"
+  04-update.cmd -InstallDir "D:\MyHome"
+选择本地 NTFS 短路径，避免 %, &, ! 和双引号；不要使用网络盘、同步盘或 U 盘作为运行目录。
+
+八、验证边界
+应用源码来自 packages.json 指定的两个 GitHub 公开仓库的 master 分支，部署时联网拉取，
+每次 04-update.cmd 会更新到最新提交；state\installed.json 记录本次部署的提交号。
+环境来自固定官方发行归档并核对哈希；VC++ 使用包内固定微软安装文件，仍由 Windows 展示 UAC 发布者。
+当前制作环境为 macOS；原生 PowerShell 5.1、UAC、DPAPI、NTFS、Windows MySQL 8.4，
+以及 git clone / mvn spring-boot:run / pnpm dev 的完整联网安装、启停与部署最新，
+仍需 Windows 真机验收。静态语法和隔离检查不能替代该验证。

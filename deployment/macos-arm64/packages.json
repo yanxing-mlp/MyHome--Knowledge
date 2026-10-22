@@ -1,0 +1,81 @@
+{
+  "platform": "macos-arm64",
+  "formatVersion": 3,
+  "offline": false,
+  "runMode": "source",
+  "git": {
+    "mode": "system",
+    "note": "Unix 无官方独立 git 二进制；使用系统 git。缺失时脚本给出安装指引：macOS 执行 xcode-select --install。"
+  },
+  "jdk": {
+    "version": "21.0.11",
+    "file": "zulu21.50.19-ca-jdk21.0.11-macosx_aarch64.tar.gz",
+    "directory": "zulu21.50.19-ca-jdk21.0.11-macosx_aarch64",
+    "home": "Contents/Home",
+    "probe": "Contents/Home/bin/java",
+    "url": "https://cdn.azul.com/zulu/bin/zulu21.50.19-ca-jdk21.0.11-macosx_aarch64.tar.gz",
+    "algorithm": "SHA256",
+    "hash": "59cf896951a1f3cd132abfc1f74ba4db1f916ecc81b3c0022c5c16a21ae940ad"
+  },
+  "node": {
+    "version": "22.23.3",
+    "file": "node-v22.23.3-darwin-arm64.tar.gz",
+    "directory": "node-v22.23.3-darwin-arm64",
+    "probe": "bin/node",
+    "url": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-darwin-arm64.tar.gz",
+    "algorithm": "SHA256",
+    "hash": "23b25245dcfb9af7262f8ff142e9e2e0af025368117329e7a7458a51e5922f53"
+  },
+  "maven": {
+    "version": "3.9.9",
+    "file": "apache-maven-3.9.9-bin.tar.gz",
+    "directory": "apache-maven-3.9.9",
+    "probe": "bin/mvn",
+    "url": "https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz",
+    "algorithm": "SHA256",
+    "hash": "7a9cdf674fc1703d6382f5f330b3d110ea1b512b51f1652846d9e4e8a588d766"
+  },
+  "pnpm": {
+    "version": "10.11.0",
+    "file": "pnpm-10.11.0.tgz",
+    "directory": "package",
+    "probe": "bin/pnpm.cjs",
+    "url": "https://registry.npmjs.org/pnpm/-/pnpm-10.11.0.tgz",
+    "algorithm": "SHA256",
+    "hash": "a69e9cb077da419d47d18f1dd52e207245b29cac6e076acedbeb8be3b1a67bd7"
+  },
+  "mysql": {
+    "version": "8.4.11",
+    "file": "mysql-8.4.11-macos15-arm64.tar.gz",
+    "directory": "mysql-8.4.11-macos15-arm64",
+    "probe": "bin/mysqld",
+    "url": "https://cdn.mysql.com/Downloads/MySQL-8.4/mysql-8.4.11-macos15-arm64.tar.gz",
+    "algorithm": "SHA256",
+    "hash": "b96e00493bc3499b9ffd7f08d65c5d64933af0383a8287d9873b64f94c2d6009"
+  },
+  "repos": {
+    "server": {
+      "label": "后端 · family-home-server",
+      "url": "https://github.com/yanxing-mlp/MyHome.git",
+      "branch": "master",
+      "directory": "src/server"
+    },
+    "web": {
+      "label": "前端 · family-home-web",
+      "url": "https://github.com/yanxing-mlp/MyHome-React.git",
+      "branch": "master",
+      "directory": "src/web"
+    }
+  },
+  "ports": {
+    "db": 13306,
+    "backend": 8080,
+    "admin": 5173,
+    "h5": 5174
+  },
+  "transportSalt": {
+    "frontendEnv": "VITE_FH_TRANSPORT_CRYPTO_SALT",
+    "backendEnv": "FH_TRANSPORT_CRYPTO_SALT",
+    "backendProperty": "fh.transport-crypto.salt"
+  }
+}

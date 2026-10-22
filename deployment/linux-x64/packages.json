@@ -1,7 +1,7 @@
 {
   "platform": "linux-x64",
   "formatVersion": 4,
-  "offline": false,
+  "offline": true,
   "runMode": "artifact",
   "jdk": {
     "version": "21.0.11",
@@ -31,13 +31,6 @@
     "h5Dir": "h5",
     "algorithm": "SHA256",
     "hash": "cd4cc8bc66c26c4bee4533f707f367f94bc5366669c122f2a2d1416d7d2426d9"
-  },
-  "update": {
-    "note": "「部署最新」在线升级通道：从 GitHub Release 拉取最新产物包，校验 SHA256 后原子替换 app/ 并重启后端（Flyway 随新 JAR 的 classpath 自动迁移）。releases/latest/download/<asset> 走 GitHub 稳定重定向，无需解析 Release API。",
-    "channel": "github-release",
-    "repo": "yanxing-mlp/MyHome",
-    "versionAsset": "version.json",
-    "payloadAsset": "MyHome-app-payload.zip"
   },
   "ports": {
     "db": 13306,

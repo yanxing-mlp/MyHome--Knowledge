@@ -1,7 +1,6 @@
 #requires -Version 5.1
 <#
-Windows 10/11 x64 一键部署包（联网 · 产物直跑）。v57 起从「源码直跑」改为「产物直跑」，与
-myhome-unix.sh 逐条对齐：
+Windows 10/11 x64 离线部署包（离线 · 产物直跑）。与 myhome-unix.sh 逐条对齐：
   · 工具链只保留运行必需的 JDK 21 与 MySQL 8.4（+ 微软 VC++ 运行库），随包携带并逐一校验 SHA256，
     不联网下载。不再需要 git / Maven / pnpm / Node —— 应用不再现场编译，直接跑构建好的产物。
   · 应用产物（后端 fat JAR + 两份已构建前端 dist + schema 快照 + version.json）打包成一个 zip 随包
@@ -10,8 +9,8 @@ myhome-unix.sh 逐条对齐：
   · 数据库迁移（Flyway）随 JAR 的 classpath 一起发布，故「部署包的 SQL」= 重新构建 JAR 即自动更新。
     空库冷启动先载入构建期生成的 schema-snapshot.sql（含真 Flyway 历史），规避 V103 严格重放失败；
     已有库跳过快照，走后端启动时的 Flyway 增量迁移。
-  · 「部署最新」（04-update.cmd 或后端部署管理页一键触发）从 GitHub Release 拉取最新产物包，校验
-    SHA256 后原子替换 app\，再重启后端。这一步需要联网。
+  · 升级到新版本 = 手动放置新的离线部署包，再运行 04-update.cmd：校验并解包本包 runtime/ 携带的产物包，
+    原子替换 app\，再重启后端。全程离线，绝不联网下载。
   · 私有 MySQL 监听 127.0.0.1:13306，数据落 <install>\data\mysql，绝不接管系统 MySQL。
   · 只绑定 127.0.0.1；不改防火墙/执行策略等机器级安全设置、不杀未知进程、不清库、不删密钥。
 通过 .cmd 启动器运行（01-deploy.cmd / 02-start.cmd / 03-stop.cmd / 04-update.cmd）。
@@ -49,28 +48,20 @@ $AppDir = $null
 $AppNew = $null
 $AppOld = $null
 $AppVersionFile = $null
-# 清单里 app / update 段的值（Load-AppManifest 填充）。
+# 清单里 app 段的值（Load-AppManifest 填充）。
 $AppZipName = 'MyHome-app-payload.zip'
 $AppJarName = 'family-home-server.jar'
 $AppAdminDirName = 'admin'
 $AppH5DirName = 'h5'
 $AppSnapshotName = 'schema-snapshot.sql'
-$UpdateRepo = ''
-$UpdateVersionAsset = 'version.json'
-$UpdatePayloadAsset = 'MyHome-app-payload.zip'
 # 当前解包在 app\ 里的产物元数据（Read-AppMeta 从 app\version.json 读取）。
 $AppVersion = ''
 $AppSalt = ''
 $AppServerCommit = ''
 $AppWebCommit = ''
-# 最新发布版本元数据（Fetch-LatestRelease 从 GitHub Release 的 version.json 读取）。
-$LatestVersion = ''
-$LatestSha = ''
-$LatestServerCommit = ''
-$LatestWebCommit = ''
-# 「部署最新」进度上报：仅 Action=Update 时启用。后端点一下 → deploy-now.cmd 分离拉起本脚本 →
-# 每个 Set-Step 实时把进度写进 logs/deploy-status.json（原子写），前端轮询它显示进度；
-# Update 会杀掉并重启后端，故进度必须落盘，重启后的新后端读同一个文件接着显示。
+# 部署进度上报：仅 Action=Update（手动运行 04-update.cmd 升级）时启用。
+# 每个 Set-Step 实时把进度写进 logs/deploy-status.json（原子写），跑到终态再把整条前插进 logs/deploy-history.json，
+# 供后端部署管理页只读回吐部署历史。Update 会杀掉并重启后端，故进度必须落盘。
 $DeployActive = $false
 $DeployStatusPath = $null
 $DeployHistoryPath = $null
@@ -198,7 +189,7 @@ function Initialize-DeployStatus {
     $script:DeployResultVersion = ''
     $script:DeployResultCommits = @{}
     $script:DeployActive = $true
-    Add-DeployLine '部署脚本已启动：从 GitHub Release 拉取最新产物包 + 重启后端'
+    Add-DeployLine '部署脚本已启动：解包本离线包内的产物 + 重启后端'
 }
 function Add-DeployLine([string]$Message, [string]$Level = 'info') {
     if (!$script:DeployActive) { return }
@@ -268,7 +259,7 @@ function Get-SafePath([string]$Base, [string]$Relative) {
 }
 function Get-LocalPackage($Spec, [string]$Directory = 'runtime') {
     if ($Spec.algorithm -cne 'SHA256' -or $Spec.hash -notmatch '^[a-fA-F0-9]{64}$') {
-        throw '一键部署包清单必须提供有效的 SHA256；请重新完整拷贝一键部署包。'
+        throw '离线部署包清单必须提供有效的 SHA256；请重新完整拷贝离线部署包。'
     }
     if ($Directory -eq 'runtime' -and $Spec.file -match '[\\/]') { throw 'runtime 清单的 file 必须为文件名，不能包含目录。' }
     $relative = [string]$Spec.file
@@ -276,7 +267,7 @@ function Get-LocalPackage($Spec, [string]$Directory = 'runtime') {
     $file = Get-SafePath $PSScriptRoot $relative
     Set-Step "校验本地文件 $relative"
     if (!(Check-Hash $file $Spec.hash $Spec.algorithm)) {
-        throw "本地文件缺失或 SHA256 不符：$relative。请重新完整拷贝一键部署包（包含 runtime/）；不联网下载。"
+        throw "本地文件缺失或 SHA256 不符：$relative。请重新完整拷贝离线部署包（包含 runtime/）；不联网下载。"
     }
     return $file
 }
@@ -458,7 +449,7 @@ function Ensure-VcRuntime {
     # Fixed digest from Microsoft's official distribution, not a rolling download.
     # Do not invoke Authenticode/CRL lookup in the offline bootstrap; UAC still shows the publisher.
     if ($Package.vcredist.hash -ne 'cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b') {
-        throw 'VC++ 清单不是固定的微软官方 SHA256；请重新完整拷贝一键部署包。'
+        throw 'VC++ 清单不是固定的微软官方 SHA256；请重新完整拷贝离线部署包。'
     }
     $file = Get-LocalPackage $Package.vcredist
     Set-Step '检查微软 VC++ 运行库'
@@ -472,18 +463,15 @@ function Ensure-VcRuntime {
 }
 
 # =============================================================================
-# 应用产物：清单 / 解包 / 读取元数据 / 从 GitHub Release 拉取最新
+# 应用产物：清单 / 解包 / 读取元数据 / 从本离线包升级到新版本
 # =============================================================================
 function Load-AppManifest {
-    # 从 packages.json 读 app / update 段（格式校验在主流程里针对 deploy/update 做）。
+    # 从 packages.json 读 app 段（格式校验在主流程里针对 deploy/update 做）。
     if (!$Package) { return }
     if ($Package.app.file) { $script:AppZipName = [string]$Package.app.file }
     if ($Package.app.jar) { $script:AppJarName = [string]$Package.app.jar }
     if ($Package.app.adminDir) { $script:AppAdminDirName = [string]$Package.app.adminDir }
     if ($Package.app.h5Dir) { $script:AppH5DirName = [string]$Package.app.h5Dir }
-    if ($Package.update.repo) { $script:UpdateRepo = [string]$Package.update.repo }
-    if ($Package.update.versionAsset) { $script:UpdateVersionAsset = [string]$Package.update.versionAsset }
-    if ($Package.update.payloadAsset) { $script:UpdatePayloadAsset = [string]$Package.update.payloadAsset }
 }
 function Extract-App([string]$Zip, [string]$Destination) {
     if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination -Recurse -Force }
@@ -516,7 +504,7 @@ function Install-App {
 }
 function Write-Installed([string]$Version, [string]$ServerCommit, [string]$WebCommit, [string]$InstalledAt, [string]$UpdatedAt) {
     $record = [ordered]@{
-        formatVersion = 4; offline = $false; runMode = 'artifact'
+        formatVersion = 4; offline = $true; runMode = 'artifact'
         version = $Version
         server = @{ commit = $ServerCommit }
         web = @{ commit = $WebCommit }
@@ -524,38 +512,6 @@ function Write-Installed([string]$Version, [string]$ServerCommit, [string]$WebCo
     }
     if ($UpdatedAt) { $record.updatedAt = $UpdatedAt }
     Save-Json (Join-Path $State 'installed.json') $record
-}
-function Get-ReleaseUrl([string]$Asset) { return "https://github.com/$UpdateRepo/releases/latest/download/$Asset" }
-function Fetch-LatestRelease {
-    # 拉取 GitHub 最新 Release 的 version.json（走稳定重定向，无需解析 Release API）。
-    if ($UpdateRepo -notmatch '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$') { throw '清单 update.repo 不合法（应为 owner/name）；请重新完整拷贝一键部署包。' }
-    Set-Step "查询 GitHub 最新发布版本（$UpdateRepo）"
-    $vurl = Get-ReleaseUrl $UpdateVersionAsset
-    $tmpv = Join-Path $State 'latest-version.json'
-    if (Test-Path -LiteralPath $tmpv) { Remove-Item -LiteralPath $tmpv -Force }
-    try { Invoke-WebRequest -UseBasicParsing -Uri $vurl -OutFile $tmpv -TimeoutSec 60 }
-    catch { throw "无法获取最新发布版本信息（$vurl）；请检查网络，或确认该仓库已发布带 $UpdateVersionAsset 资产的 Release。$(Error-Reason $_)" }
-    $meta = Get-Content -LiteralPath $tmpv -Raw -Encoding UTF8 | ConvertFrom-Json
-    $script:LatestVersion = [string]$meta.version
-    $script:LatestSha = [string]$meta.payload.sha256
-    $script:LatestServerCommit = [string]$meta.server.commit
-    $script:LatestWebCommit = [string]$meta.web.commit
-    if ([string]::IsNullOrEmpty($script:LatestVersion)) { throw '最新发布的 version.json 缺少 version 字段。' }
-    if ($script:LatestSha -notmatch '^[a-fA-F0-9]{64}$') { throw '最新发布的 version.json 缺少有效的 payload.sha256；拒绝下载来源不明的产物包。' }
-    Info "最新发布版本：$LatestVersion（当前运行：$AppVersion）"
-}
-function Download-ReleasePayload {
-    # 下载并校验最新产物包到 state\download-payload.zip（校验通过前绝不触碰 app\）。
-    Set-Step "下载最新产物包（$UpdatePayloadAsset）"
-    $purl = Get-ReleaseUrl $UpdatePayloadAsset
-    $tmpzip = Join-Path $State 'download-payload.zip'
-    if (Test-Path -LiteralPath $tmpzip) { Remove-Item -LiteralPath $tmpzip -Force }
-    try { Invoke-WebRequest -UseBasicParsing -Uri $purl -OutFile $tmpzip -TimeoutSec 1800 }
-    catch { throw "下载最新产物包失败（$purl）；请检查网络后重试。现有应用未改动。$(Error-Reason $_)" }
-    Set-Step '校验产物包 SHA256'
-    $actual = (Get-FileHash -LiteralPath $tmpzip -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actual -cne $LatestSha.ToLowerInvariant()) { throw "下载的产物包 SHA256（$actual）与 version.json 声明的（$LatestSha）不符；已丢弃，现有应用未改动。" }
-    return $tmpzip
 }
 function Swap-App([string]$NewDir) {
     # 原子替换 app\（调用前后端必须已停止）。
@@ -565,30 +521,34 @@ function Swap-App([string]$NewDir) {
     if (Test-Path -LiteralPath $AppOld) { Remove-Item -LiteralPath $AppOld -Recurse -Force }
 }
 function Run-Update {
-    # 「部署最新」的完整下载-校验-替换流程（不含停/起后端，由主流程编排）。返回 $true=已替换，$false=已是最新。
+    # 升级到本离线包内的版本：校验并解包本包 runtime\ 携带的产物包，原子替换 app\（不含停/起后端，由主流程编排）。
+    # 全程离线，绝不联网下载。返回 $true=已替换，$false=本包内版本与当前运行一致、无需替换。
     Read-AppMeta
     $script:DeployFromCommits = @{ server = $AppServerCommit; web = $AppWebCommit }
     $script:DeployFromVersion = $AppVersion
     Add-DeployLine "当前运行版本：$AppVersion"
-    Fetch-LatestRelease
-    $script:DeployTargetCommits = @{ server = $LatestServerCommit; web = $LatestWebCommit }
-    $script:DeployTargetVersion = $LatestVersion
-    if ($LatestVersion -eq $AppVersion) {
-        Add-DeployLine "已是最新版本（$AppVersion），无需替换产物"
-        $script:DeployResultVersion = $AppVersion
-        $script:DeployResultCommits = @{ server = $AppServerCommit; web = $AppWebCommit }
-        return $false
-    }
-    Add-DeployLine "发现新版本：$AppVersion → $LatestVersion，开始下载"
-    $zip = Download-ReleasePayload
-    Set-Step '解包新版本到暂存目录并原子替换'
+    $zip = Get-LocalPackage $Package.app
+    Set-Step '解包本离线包内产物到暂存目录并读取版本'
     if (Test-Path -LiteralPath $AppNew) { Remove-Item -LiteralPath $AppNew -Recurse -Force }
     Extract-App $zip $AppNew
-    Swap-App $AppNew
-    foreach ($f in @('download-payload.zip', 'latest-version.json')) {
-        $p = Join-Path $State $f
-        if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force }
+    $newMeta = Get-Content -LiteralPath (Join-Path $AppNew 'version.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $newVersion = [string]$newMeta.version
+    if ([string]::IsNullOrEmpty($newVersion)) {
+        if (Test-Path -LiteralPath $AppNew) { Remove-Item -LiteralPath $AppNew -Recurse -Force }
+        throw '离线包内产物 version.json 缺少 version 字段；包不完整。'
     }
+    $script:DeployTargetVersion = $newVersion
+    $script:DeployTargetCommits = @{ server = [string]$newMeta.server.commit; web = [string]$newMeta.web.commit }
+    if ($newVersion -eq $AppVersion) {
+        Add-DeployLine "本离线包内版本与当前运行一致（$AppVersion），无需替换产物"
+        $script:DeployResultVersion = $AppVersion
+        $script:DeployResultCommits = @{ server = $AppServerCommit; web = $AppWebCommit }
+        if (Test-Path -LiteralPath $AppNew) { Remove-Item -LiteralPath $AppNew -Recurse -Force }
+        return $false
+    }
+    Add-DeployLine "升级到离线包内版本：$AppVersion → $newVersion"
+    Set-Step '原子替换 app\ 到离线包内版本'
+    Swap-App $AppNew
     Read-AppMeta
     $script:DeployResultVersion = $AppVersion
     $script:DeployResultCommits = @{ server = $AppServerCommit; web = $AppWebCommit }
@@ -827,11 +787,8 @@ function Start-Backend {
         LOGGING_FILE_NAME = (Join-Path $Logs 'server.log'); SERVER_ADDRESS = '127.0.0.1'; SERVER_PORT = "$BackendPort"
         # 变更记录页「当前运行版本」= 本次产物构建自的两仓 commit（取自 app\version.json，产物直跑没有 git 工作副本）。
         FH_RUNNING_COMMIT_SERVER = $AppServerCommit; FH_RUNNING_COMMIT_WEB = $AppWebCommit
-        # 「部署最新」入口：后端据此分离式拉起 deploy-now.cmd（内部再 start PowerShell 跑 -Action Update），
-        # 并把 Update 实时写出的 deploy-status.json 读回给前端；Update 跑到终态还会把该次追加进 deploy-history.json。
-        # 缺 launcher/progress-file 后端就视为「未接入一键部署」、不显示入口。
-        FH_DEPLOY_LAUNCHER = (Join-Path $PSScriptRoot 'deploy-now.cmd'); FH_DEPLOY_PROGRESS_FILE = (Join-Path $Logs 'deploy-status.json')
-        FH_DEPLOY_HISTORY_FILE = (Join-Path $Logs 'deploy-history.json'); FH_DEPLOY_RELEASE_REPO = $UpdateRepo
+        # 部署历史：手动运行 04-update.cmd 时由本脚本在终态追加进 deploy-history.json，后端只读回吐给部署管理页。
+        FH_DEPLOY_HISTORY_FILE = (Join-Path $Logs 'deploy-history.json')
         FH_INSTALL_DIR = $Root; FH_MYSQLDUMP_PATH = (Join-Path $Runtime.mysql 'bin\mysqldump.exe')
         # Flyway 的位置/乱序/基线策略全部沿用 JAR 内 application.yml（已验证的 prod 口径），此处不再覆盖。
     }
@@ -871,7 +828,7 @@ function Assert-ArtifactInstall([switch]$RequireInstalled) {
     if (Test-Path -LiteralPath $record) {
         $installed = Get-Content -LiteralPath $record -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($installed.PSObject.Properties.Name -notcontains 'formatVersion' -or $installed.formatVersion -ne 4 -or $installed.runMode -cne 'artifact') {
-            throw '现有安装不是本「一键部署包（产物直跑）」安装的（可能是旧版源码/离线包）；拒绝接管，请保留 data/ 和 state/。'
+            throw '现有安装不是本「离线部署包（产物直跑）」安装的（可能是旧版源码/在线包）；拒绝接管，请保留 data/ 和 state/。'
         }
         return
     }
@@ -934,13 +891,10 @@ try {
     Set-Step '检查产物直跑安装身份（不接管旧版源码/离线安装）'
     Assert-ArtifactInstall -RequireInstalled:($Action -ne 'Deploy')
     if ($Action -eq 'Deploy' -or $Action -eq 'Update') {
-        Set-Step '读取格式 4 的一键部署包清单'
-        if (!$Package) { throw '缺少 packages.json；请重新完整拷贝一键部署包。' }
-        if ($Package.PSObject.Properties.Name -notcontains 'runMode' -or $Package.formatVersion -ne 4 -or $Package.offline -isnot [bool] -or $Package.offline -or $Package.runMode -cne 'artifact' -or $Package.platform -cne 'windows-x64') {
-            throw '仅支持 formatVersion=4、offline=false、runMode=artifact 的 Windows x64 一键部署包；请重新完整拷包。'
-        }
-        if ($Action -eq 'Update' -and [string]::IsNullOrEmpty($UpdateRepo)) {
-            throw '清单缺少 update.repo，无法定位 GitHub Release；请重新完整拷贝一键部署包。'
+        Set-Step '读取格式 4 的离线部署包清单'
+        if (!$Package) { throw '缺少 packages.json；请重新完整拷贝离线部署包。' }
+        if ($Package.PSObject.Properties.Name -notcontains 'runMode' -or $Package.formatVersion -ne 4 -or $Package.offline -isnot [bool] -or !$Package.offline -or $Package.runMode -cne 'artifact' -or $Package.platform -cne 'windows-x64') {
+            throw '仅支持 formatVersion=4、offline=true、runMode=artifact 的 Windows x64 离线部署包；请重新完整拷包。'
         }
     }
     Set-Step '加载加密凭据'
@@ -964,7 +918,7 @@ try {
         Set-Step '读取已有运行环境记录'
         $Runtime = Get-Content -LiteralPath (Join-Path $State 'runtime.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         foreach ($need in @('jdk', 'mysql')) {
-            if (!$Runtime.$need) { throw "运行环境记录缺少 $need；请用同一一键部署包重新运行 01-deploy.cmd。" }
+            if (!$Runtime.$need) { throw "运行环境记录缺少 $need；请用同一离线部署包重新运行 01-deploy.cmd。" }
         }
         if (!(Test-Path -LiteralPath (Join-Path $AppDir $AppJarName) -PathType Leaf) -or !(Test-Path -LiteralPath $AppVersionFile -PathType Leaf)) {
             throw "已部署的应用产物不完整（$AppDir）；请运行 01-deploy.cmd 重新解包，不要删除 data/ 或 state/。"
@@ -996,7 +950,7 @@ try {
         Write-Host '  Change both passwords in Admin > Personal profile before saving real data.'
         Write-Host '  Existing account passwords are NEVER reset by this script.'
         Write-Host "  Logs: $Logs"
-        Write-Host '  Restart after Windows reboot: 02-start.cmd. Deploy latest release: 04-update.cmd. Shut down: 03-stop.cmd.'
+        Write-Host '  Restart after Windows reboot: 02-start.cmd. Upgrade from a new offline package: 04-update.cmd. Shut down: 03-stop.cmd.'
         Write-Host '  No automatic boot task, firewall rule, LAN exposure or sleep-setting changes were made.'
         Save-Text (Join-Path $Root 'open-myhome.url') "[InternetShortcut]`r`nURL=http://localhost:$BackendPort/`r`n"
         try { Start-Process "http://localhost:$BackendPort/" }

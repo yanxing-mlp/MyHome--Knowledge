@@ -74,7 +74,7 @@ MyHome--Knowledge/
 
 ## 部署
 
-交付物是一个总包 `MyHome-OneClick.zip`，内含 `windows-x64/`、`macos-arm64/`、`linux-x64/` 三个平台子目录和一份共享 `执行说明.md`。模型是**产物直跑**（v57）：工具链只保留运行必需的 JDK 21 + MySQL 8.4（Windows 另含 VC++）随包核哈希，构建好的应用产物包（后端 fat JAR + 两份已构建前端 dist + schema 快照 + 版本戳）也随包携带；首次部署解到 `app/` 用 `java -jar` 起后端，后端**单端口 8080** 同时托管管理后台 `/admin/` 与 C 端 `/`（Topology A，同源、无反代）。不再 `git clone` / `mvn` / `pnpm` / `node`，首次部署可离线；「部署最新」从 GitHub Release 拉新产物包、校验 SHA-256 后原子替换 `app/` 再重启。
+交付物是一个**离线部署包** `MyHome-Offline.zip`，内含 `windows-x64/`、`macos-arm64/`、`linux-x64/` 三个平台子目录和一份共享 `执行说明.md`。模型是**产物直跑 + 全程离线**（v58）：工具链只保留运行必需的 JDK 21 + MySQL 8.4（Windows 另含 VC++）随包核哈希，构建好的应用产物包（后端 fat JAR + 两份已构建前端 dist + schema 快照 + 版本戳）也随包携带；首次部署解到 `app/` 用 `java -jar` 起后端，后端**单端口 8080** 同时托管管理后台 `/admin/` 与 C 端 `/`（Topology A，同源、无反代）。不 `git clone` / `mvn` / `pnpm` / `node`，部署、启停、升级都不需要网络。**升级到新版本 = 手动放置一个新的离线部署包（其 `runtime/` 内带新产物包），再跑 `04-update`**：引擎只校验并解包本包内自带的产物包、SHA-256 通过后原子替换 `app/` 再重启，**绝不联网下载**。v57 那条从 GitHub Release 拉新产物包的在线升级通道已整体移除（`packages.json` 无 `update` 块、`offline:true`；后端只留 capability + history、前端「部署管理」页只留当前版本卡 + 部署历史，无「部署最新」按钮）。
 
 - **Windows**：`01-deploy.cmd` / `02-start.cmd` / `03-stop.cmd` / `04-update.cmd`，引擎 `myhome-windows.ps1`。
 - **macOS / Linux**：同名 `.sh` 入口，共用引擎 `common/myhome-unix.sh`（靠 `uname` 分流）。

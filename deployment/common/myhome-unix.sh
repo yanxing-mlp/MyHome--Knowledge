@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# MyHome macOS(arm64) / Linux(x64) 一键部署引擎（联网 · 产物直跑）
+# MyHome macOS(arm64) / Linux(x64) 离线部署引擎（离线 · 产物直跑）
 #
-# 这是 myhome-windows.ps1 的 Unix 对等实现，口径逐条对齐。v57 起从「源码直跑」改为「产物直跑」：
+# 这是 myhome-windows.ps1 的 Unix 对等实现，口径逐条对齐。产物直跑 + 全程离线：
 #   · 工具链只保留运行必需的 JDK 21 与 MySQL 8.4，随包携带并逐一校验 SHA256（不联网下载）。
 #     不再需要 git / Maven / pnpm / Node —— 应用不再现场编译，直接跑构建好的产物。
 #   · 应用产物（后端 fat JAR + 两份已构建前端 dist + version.json）打包成一个 zip 随包携带于
@@ -10,8 +10,9 @@
 #     两份 dist（Topology A：/admin/** 出 B 端、/** 出 C 端），前后端同源、无需任何反向代理。
 #   · 数据库迁移（Flyway）随 JAR 的 classpath 一起发布，故「部署包的 SQL」= 重新构建 JAR 即自动更新，
 #     不存在独立的 .sql 文件。首次部署与每次更新都由后端启动时的 Flyway 自动应用新迁移。
-#   · 「部署最新」（04-update.sh 或后端部署管理页一键触发）从 GitHub Release 拉取最新产物包，
-#     校验 SHA256 后原子替换 <install>/app/，再重启后端。这一步需要联网。
+#   · 升级 = 手动换包：拿到新的离线部署包后解压，再次运行 04-update.sh（或 01-deploy.sh）指向同一安装
+#     目录，引擎从「本包 runtime/ 里携带的产物包」校验 SHA256 后原子替换 <install>/app/ 并重启后端。
+#     全程不联网、不下载、不 git、不现场构建。
 #   · 私有 MySQL 监听 127.0.0.1:13306，数据落 <install>/data/mysql，绝不接管系统 MySQL。
 #   · 只绑定 127.0.0.1；不改防火墙、不改全局配置、不杀未知进程、不清库、不删密钥。
 #
@@ -87,20 +88,16 @@ LOCK_ACQUIRED=0
 # 运行环境（部署后写入 state/runtime.env）——产物直跑只需要 JDK 与 MySQL。
 RT_JDK=""; RT_MYSQL=""; RT_JAVA_HOME=""
 
-# 清单里 app / update 段的值（load_app_manifest 填充）
+# 清单里 app 段的值（load_app_manifest 填充）
 APP_ZIP_NAME="MyHome-app-payload.zip"; APP_JAR_NAME="family-home-server.jar"
 APP_ADMIN_DIRNAME="admin"; APP_H5_DIRNAME="h5"
 # 新库冷启动用的原始 schema+种子+真 Flyway 历史快照（构建期生成，见 gen-schema-snapshot.py）。
 APP_SNAPSHOT_NAME="schema-snapshot.sql"
-UPDATE_REPO=""; UPDATE_VERSION_ASSET="version.json"; UPDATE_PAYLOAD_ASSET="MyHome-app-payload.zip"
 
 # 当前解包在 app/ 里的产物元数据（read_app_meta 从 app/version.json 读取）
 APP_VERSION=""; APP_SALT=""; APP_SERVER_COMMIT=""; APP_WEB_COMMIT=""
 
-# 最新发布版本元数据（fetch_latest_release 从 GitHub Release 的 version.json 读取）
-LATEST_VERSION=""; LATEST_SHA=""; LATEST_SERVER_COMMIT=""; LATEST_WEB_COMMIT=""
-
-# 「部署最新」进度上报（仅 action=update 启用）
+# 「部署最新」进度上报（仅 action=update 启用；离线包下 update = 从本包产物原子换 app/）
 DEPLOY_ACTIVE=0
 DEPLOY_STATUS_PATH=""
 DEPLOY_HISTORY_PATH=""
@@ -244,13 +241,13 @@ local_package() { # local_package <spec-key>  → 打印 runtime 内文件绝对
   hash="$(json_get "$pkg" "$key.hash")"
   algo="$(json_get "$pkg" "$key.algorithm")"
   if [ "$algo" != "SHA256" ] || ! printf '%s' "$hash" | grep -qE '^[a-fA-F0-9]{64}$'; then
-    die "一键部署包清单 $key 缺少有效 SHA256；请重新完整拷贝一键部署包。"
+    die "离线部署包清单 $key 缺少有效 SHA256；请重新完整拷贝离线部署包。"
   fi
   case "$file" in */*) die "runtime 清单 $key.file 必须是文件名，不能含目录。" ;; esac
   local path="$SCRIPT_DIR/runtime/$file"
   step "校验本地文件 runtime/$file"
   if ! check_hash "$path" "$hash"; then
-    die "本地文件缺失或 SHA256 不符：runtime/$file。请重新完整拷贝一键部署包（含 runtime/）；不联网下载。"
+    die "本地文件缺失或 SHA256 不符：runtime/$file。请重新完整拷贝离线部署包（含 runtime/）；不联网下载。"
   fi
   printf '%s' "$path"
 }
@@ -295,10 +292,10 @@ install_tarball() { # install_tarball <spec-key> <name>  → 打印安装后的 
 }
 
 # =============================================================================
-# 应用产物：解包 / 读取元数据 / 从 GitHub Release 拉取最新
+# 应用产物：解包 / 读取元数据 / 从本离线包携带的产物包换版（全程不联网）
 # =============================================================================
 load_app_manifest() {
-  # 从 packages.json 读 app / update 段（不校验格式，格式校验在 main 里针对 deploy/update 做）。
+  # 从 packages.json 读 app 段（不校验格式，格式校验在 main 里针对 deploy/update 做）。
   local pkg="$SCRIPT_DIR/packages.json"
   [ -f "$pkg" ] || return 0
   local v
@@ -306,9 +303,6 @@ load_app_manifest() {
   v="$(json_get "$pkg" app.jar)";             [ -n "$v" ] && APP_JAR_NAME="$v"
   v="$(json_get "$pkg" app.adminDir)";        [ -n "$v" ] && APP_ADMIN_DIRNAME="$v"
   v="$(json_get "$pkg" app.h5Dir)";           [ -n "$v" ] && APP_H5_DIRNAME="$v"
-  v="$(json_get "$pkg" update.repo)";         [ -n "$v" ] && UPDATE_REPO="$v"
-  v="$(json_get "$pkg" update.versionAsset)"; [ -n "$v" ] && UPDATE_VERSION_ASSET="$v"
-  v="$(json_get "$pkg" update.payloadAsset)"; [ -n "$v" ] && UPDATE_PAYLOAD_ASSET="$v"
 }
 
 extract_app() { # extract_app <zip> <destDir>
@@ -343,41 +337,6 @@ install_app() { # 首次部署：解包随包携带的产物 zip 到 app/
   info "已就位应用版本：$APP_VERSION"
 }
 
-release_url() { printf 'https://github.com/%s/releases/latest/download/%s' "$UPDATE_REPO" "$1"; }
-
-fetch_latest_release() { # 拉取 GitHub 最新 Release 的 version.json（走稳定重定向，无需解析 Release API）
-  printf '%s' "$UPDATE_REPO" | grep -qE '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$' \
-    || die "清单 update.repo 不合法（应为 owner/name）；请重新完整拷贝一键部署包。"
-  command -v curl >/dev/null 2>&1 || die "未找到 curl，无法联网获取最新发布版本；请安装 curl 后重试。"
-  step "查询 GitHub 最新发布版本（$UPDATE_REPO）"
-  local vurl tmpv; vurl="$(release_url "$UPDATE_VERSION_ASSET")"; tmpv="$STATE/latest-version.json"
-  rm -f "$tmpv"
-  curl -fsSL --max-time 30 -o "$tmpv" "$vurl" \
-    || die "无法获取最新发布版本信息（$vurl）；请检查网络，或确认该仓库已发布带 $UPDATE_VERSION_ASSET 资产的 Release。"
-  LATEST_VERSION="$(json_get "$tmpv" version)"
-  LATEST_SHA="$(json_get "$tmpv" payload.sha256)"
-  LATEST_SERVER_COMMIT="$(json_get "$tmpv" server.commit)"
-  LATEST_WEB_COMMIT="$(json_get "$tmpv" web.commit)"
-  [ -n "$LATEST_VERSION" ] || die "最新发布的 version.json 缺少 version 字段。"
-  printf '%s' "$LATEST_SHA" | grep -qE '^[a-fA-F0-9]{64}$' \
-    || die "最新发布的 version.json 缺少有效的 payload.sha256；拒绝下载来源不明的产物包。"
-  info "最新发布版本：$LATEST_VERSION（当前运行：${APP_VERSION:-未知}）"
-}
-
-download_release_payload() { # 下载并校验最新产物包到 state/download-payload.zip（校验通过前绝不触碰 app/）
-  command -v curl >/dev/null 2>&1 || die "未找到 curl，无法下载最新产物包。"
-  step "下载最新产物包（$UPDATE_PAYLOAD_ASSET）"
-  local purl tmpzip; purl="$(release_url "$UPDATE_PAYLOAD_ASSET")"; tmpzip="$STATE/download-payload.zip"
-  rm -f "$tmpzip"
-  curl -fSL --max-time 900 -o "$tmpzip" "$purl" \
-    || die "下载最新产物包失败（$purl）；请检查网络后重试。现有应用未改动。"
-  step "校验产物包 SHA256"
-  local actual; actual="$(sha256_of "$tmpzip")"
-  [ "$actual" = "$LATEST_SHA" ] \
-    || die "下载的产物包 SHA256（$actual）与 version.json 声明的（$LATEST_SHA）不符；已丢弃，现有应用未改动。"
-  printf '%s' "$tmpzip"
-}
-
 swap_app() { # swap_app <newDir>  → 原子替换 app/（调用前后端必须已停止）
   local newdir="$1"
   rm -rf "$APP_OLD"
@@ -386,30 +345,36 @@ swap_app() { # swap_app <newDir>  → 原子替换 app/（调用前后端必须�
   rm -rf "$APP_OLD"
 }
 
-# 「部署最新」的完整下载-校验-替换流程（不含停/起后端，由 main 编排）。返回 0=已替换，1=已是最新无需替换。
+# 「部署最新」= 用本离线包携带的产物包换掉当前 app/（校验-解包-原子替换，全程不联网）。
+# 返回 0=已替换，1=包内版本与当前运行一致、无需替换。调用前后端必须已停止（main 编排）。
 run_update() {
   read_app_meta
   DEPLOY_FROM_SERVER="$APP_SERVER_COMMIT"; DEPLOY_FROM_WEB="$APP_WEB_COMMIT"; DEPLOY_FROM_VERSION="$APP_VERSION"
   deploy_line "当前运行版本：$APP_VERSION"
-  fetch_latest_release
-  DEPLOY_TARGET_SERVER="$LATEST_SERVER_COMMIT"; DEPLOY_TARGET_WEB="$LATEST_WEB_COMMIT"; DEPLOY_TARGET_VERSION="$LATEST_VERSION"
-  if [ "$LATEST_VERSION" = "$APP_VERSION" ]; then
-    deploy_line "已是最新版本（$APP_VERSION），无需替换产物"
+  # 从本包 runtime/ 里携带的产物包取目标版本（local_package 已校验 SHA256），绝不联网下载。
+  local zip; zip="$(local_package app)"
+  step "解包离线包内产物到暂存目录并读取版本"
+  rm -rf "$APP_NEW"
+  extract_app "$zip" "$APP_NEW"
+  local newver; newver="$(json_get "$APP_NEW/version.json" version)"
+  [ -n "$newver" ] || { rm -rf "$APP_NEW"; die "离线包内产物 version.json 缺少 version 字段；包不完整。"; }
+  DEPLOY_TARGET_VERSION="$newver"
+  DEPLOY_TARGET_SERVER="$(json_get "$APP_NEW/version.json" server.commit)"
+  DEPLOY_TARGET_WEB="$(json_get "$APP_NEW/version.json" web.commit)"
+  if [ "$newver" = "$APP_VERSION" ]; then
+    deploy_line "离线包内版本与当前运行一致（$APP_VERSION），无需替换产物"
+    rm -rf "$APP_NEW"
     DEPLOY_RESULT_VERSION="$APP_VERSION"; DEPLOY_RESULT_SERVER="$APP_SERVER_COMMIT"; DEPLOY_RESULT_WEB="$APP_WEB_COMMIT"
     return 1
   fi
-  deploy_line "发现新版本：$APP_VERSION → $LATEST_VERSION，开始下载"
-  local zip; zip="$(download_release_payload)"
-  step "解包新版本到暂存目录并原子替换"
-  rm -rf "$APP_NEW"
-  extract_app "$zip" "$APP_NEW"
+  deploy_line "离线包内新版本：$APP_VERSION → $newver，开始原子替换"
+  step "原子替换 app/ 到离线包内版本"
   swap_app "$APP_NEW"
-  rm -f "$STATE/download-payload.zip" "$STATE/latest-version.json"
   read_app_meta
   DEPLOY_RESULT_VERSION="$APP_VERSION"; DEPLOY_RESULT_SERVER="$APP_SERVER_COMMIT"; DEPLOY_RESULT_WEB="$APP_WEB_COMMIT"
   local iat; iat="$(json_get "$STATE/installed.json" installedAt)"
   write_installed "$APP_VERSION" "$APP_SERVER_COMMIT" "$APP_WEB_COMMIT" "$iat" "$(now_iso)"
-  deploy_line "已切换到新版本：$APP_VERSION（后端 ${APP_SERVER_COMMIT:0:7}、前端 ${APP_WEB_COMMIT:0:7}）"
+  deploy_line "已切换到离线包内版本：$APP_VERSION（后端 ${APP_SERVER_COMMIT:0:7}、前端 ${APP_WEB_COMMIT:0:7}）"
   return 0
 }
 
@@ -552,9 +517,9 @@ init_deploy_status() {
   DEPLOY_LINES_FILE="$LOGS/.deploy-lines.$$"
   : > "$DEPLOY_LINES_FILE"
   DEPLOY_STARTED_AT="$(now_iso)"
-  DEPLOY_PHASE="开始部署最新版本"
+  DEPLOY_PHASE="开始部署（从本离线包换上新产物）"
   DEPLOY_ACTIVE=1
-  deploy_line "部署脚本已启动：从 GitHub Release 拉取最新产物包 + 重启后端"
+  deploy_line "部署脚本已启动：校验并解包本离线包携带的产物 + 原子替换 app/ + 重启后端（全程不联网）"
 }
 
 deploy_line() { # deploy_line <message> [level]
@@ -799,11 +764,8 @@ start_backend_logged() {
     export SERVER_ADDRESS=127.0.0.1 SERVER_PORT="$BACKEND_PORT"
     # 变更记录页「当前运行版本」= 本次产物构建自的两仓 commit（取自 app/version.json，产物直跑没有 git 工作副本）。
     export FH_RUNNING_COMMIT_SERVER="$APP_SERVER_COMMIT" FH_RUNNING_COMMIT_WEB="$APP_WEB_COMMIT"
-    # 「部署最新」入口：后端据此分离式拉起 deploy-now.sh + 读它写出的进度/历史文件；缺 launcher/progress-file 即视为未接入。
-    export FH_DEPLOY_LAUNCHER="$SCRIPT_DIR/deploy-now.sh"
-    export FH_DEPLOY_PROGRESS_FILE="$LOGS/deploy-status.json"
+    # 部署历史：引擎跑到终态时把这一条追加进该文件，后端部署管理页只读回吐（离线包没有任何在线升级触发）。
     export FH_DEPLOY_HISTORY_FILE="$LOGS/deploy-history.json"
-    export FH_DEPLOY_RELEASE_REPO="$UPDATE_REPO"
     export FH_INSTALL_DIR="$ROOT"
     export FH_MYSQLDUMP_PATH="$RT_MYSQL/bin/mysqldump"
     # Flyway 的位置/乱序/基线策略全部沿用 JAR 内 application.yml（已验证的 prod 口径），此处不再覆盖。
@@ -828,7 +790,7 @@ assert_artifact_install() { # assert_artifact_install [require]
     local fv rm
     fv="$(json_get "$record" formatVersion)"; rm="$(json_get "$record" runMode)"
     if [ "$fv" != "4" ] || [ "$rm" != "artifact" ]; then
-      die "现有安装不是本「一键部署包（产物直跑）」安装的（可能是旧版源码/离线包）；拒绝接管，请保留 data/ 和 state/。"
+      die "现有安装不是本「离线部署包（产物直跑）」安装的（可能是旧版源码/在线包）；拒绝接管，请保留 data/ 和 state/。"
     fi
     return 0
   fi
@@ -841,7 +803,7 @@ write_installed() { # write_installed <version> <server_commit> <web_commit> <in
   local tmp="$STATE/installed.json.tmp"
   {
     printf '{'
-    printf '"formatVersion":4,"offline":false,"runMode":"artifact",'
+    printf '"formatVersion":4,"offline":true,"runMode":"artifact",'
     printf '"version":"%s",' "$(json_escape "$ver")"
     printf '"server":{"commit":"%s"},' "$sc"
     printf '"web":{"commit":"%s"},' "$wc"
@@ -861,13 +823,13 @@ write_runtime_env() {
   chmod 600 "$tmp"; mv "$tmp" "$STATE/runtime.env"
 }
 load_runtime_env() {
-  [ -f "$STATE/runtime.env" ] || die "运行环境记录缺失；请用同一一键部署包重新运行 01-deploy.sh。"
+  [ -f "$STATE/runtime.env" ] || die "运行环境记录缺失；请用同一离线部署包重新运行 01-deploy.sh。"
   # shellcheck disable=SC1091
   . "$STATE/runtime.env"
   local need
   for need in RT_JDK RT_JAVA_HOME RT_MYSQL; do
     eval "local v=\${$need:-}"
-    [ -n "$v" ] || die "运行环境记录缺少 $need；请用同一一键部署包重新运行 01-deploy.sh。"
+    [ -n "$v" ] || die "运行环境记录缺少 $need；请用同一离线部署包重新运行 01-deploy.sh。"
   done
 }
 
@@ -954,15 +916,12 @@ main() {
   # 清单校验（deploy/update）
   local pkg="$SCRIPT_DIR/packages.json"
   if [ "$ACTION" = "deploy" ] || [ "$ACTION" = "update" ]; then
-    step "读取格式 4 的一键部署包清单"
-    [ -f "$pkg" ] || die "缺少 packages.json；请重新完整拷贝一键部署包。"
+    step "读取格式 4 的离线部署包清单"
+    [ -f "$pkg" ] || die "缺少 packages.json；请重新完整拷贝离线部署包。"
     local fv off rm pf
     fv="$(json_get "$pkg" formatVersion)"; off="$(json_get "$pkg" offline)"; rm="$(json_get "$pkg" runMode)"; pf="$(json_get "$pkg" platform)"
-    if [ "$fv" != "4" ] || [ "$off" != "false" ] || [ "$rm" != "artifact" ] || [ "$pf" != "$PLATFORM" ]; then
-      die "仅支持 formatVersion=4、offline=false、runMode=artifact、platform=$PLATFORM 的一键部署包；请重新完整拷包。"
-    fi
-    if [ "$ACTION" = "update" ] && [ -z "$UPDATE_REPO" ]; then
-      die "清单缺少 update.repo，无法定位 GitHub Release；请重新完整拷贝一键部署包。"
+    if [ "$fv" != "4" ] || [ "$off" != "true" ] || [ "$rm" != "artifact" ] || [ "$pf" != "$PLATFORM" ]; then
+      die "仅支持 formatVersion=4、offline=true、runMode=artifact、platform=$PLATFORM 的离线部署包；请重新完整拷包。"
     fi
   fi
 
@@ -1029,7 +988,7 @@ main() {
     printf '  Change both passwords in Admin > Personal profile before saving real data.\n'
     printf '  Existing account passwords are NEVER reset by this script.\n'
     printf '  Logs: %s\n' "$LOGS"
-    printf '  Restart after reboot: 02-start.sh. Deploy latest release: 04-update.sh. Shut down: 03-stop.sh.\n'
+    printf '  Restart after reboot: 02-start.sh. Upgrade from a new offline package: 04-update.sh. Shut down: 03-stop.sh.\n'
     printf '  No automatic boot task, firewall rule, LAN exposure or sleep-setting changes were made.\n'
     # 尝试打开浏览器（失败不影响部署）
     if [ "$OS_KERNEL" = "Darwin" ]; then open "http://localhost:$BACKEND_PORT/" >/dev/null 2>&1 || true

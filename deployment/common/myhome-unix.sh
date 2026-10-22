@@ -203,8 +203,8 @@ json_flat() {
           if (key!="") { depth++; stack[depth]=key; key=""; aftercolon=0 }
           i++; continue
         }
-        if (c=="}" || c=="]") { if (depth>0) depth--; aftercolon=0; key=""; i++; continue }
-        if (c==",") { aftercolon=0; i++; continue }
+        if (c=="}" || c=="]") { if (key!="" && val!="") { emit(key, val) } key=""; val=""; if (depth>0) depth--; aftercolon=0; i++; continue }
+        if (c==",") { if (key!="" && val!="") { emit(key, val) } key=""; val=""; aftercolon=0; i++; continue }
         if (aftercolon && (c ~ /[0-9a-zA-Z._-]/)) {
           s=""; while (i<=n) { cc=substr(line,i,1); if (cc ~ /[0-9a-zA-Z._-]/) { s=s cc; i++ } else break }
           val=s; continue
@@ -854,9 +854,9 @@ write_installed() { # write_installed <version> <server_commit> <web_commit> <in
 write_runtime_env() {
   local tmp="$STATE/runtime.env.tmp"
   {
-    printf 'RT_JDK=%s\n' "$RT_JDK"
-    printf 'RT_JAVA_HOME=%s\n' "$RT_JAVA_HOME"
-    printf 'RT_MYSQL=%s\n' "$RT_MYSQL"
+    printf 'RT_JDK=%q\n' "$RT_JDK"
+    printf 'RT_JAVA_HOME=%q\n' "$RT_JAVA_HOME"
+    printf 'RT_MYSQL=%q\n' "$RT_MYSQL"
   } > "$tmp"
   chmod 600 "$tmp"; mv "$tmp" "$STATE/runtime.env"
 }
